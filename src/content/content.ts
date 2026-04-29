@@ -77,6 +77,7 @@ const SHADOW_CSS = `
   font-size: 13px;
   user-select: none;
   display: block;
+  width: fit-content;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -92,6 +93,7 @@ const SHADOW_CSS = `
   border-radius: 100px;
   box-shadow: 0 0 0 1px var(--border), 0 8px 28px rgba(0,0,0,0.45);
   position: relative;
+  width: fit-content;
 }
 .pill-collapsed { gap: 2px; padding: 6px 4px 6px 6px; }
 .pill-expanded  { gap: 1px; padding: 6px 4px 6px 8px;
@@ -400,7 +402,7 @@ class ReadFlowWidget {
   // Drag
   private dragging = false;
   private dragStartX = 0; private dragStartY = 0;
-  private hostStartLeft = 0; private hostStartTop = 0;
+  private hostStartRight = 0; private hostStartTop = 0;
   private hasDragged = false;
   private saveDebounce: ReturnType<typeof setTimeout> | null = null;
 
@@ -463,17 +465,17 @@ class ReadFlowWidget {
   private async loadSettings(): Promise<void> {
     return new Promise(resolve => {
       chrome.storage.local.get(
-        ["selectedVoiceURI", "speed", "themeChoice", "panelX", "panelY"],
+        ["selectedVoiceURI", "speed", "themeChoice", "panelRight", "panelTop"],
         r => {
           if (typeof r.speed === "number" && SPEED_STOPS.includes(r.speed)) this.speed = r.speed;
           if (typeof r.selectedVoiceURI === "string") this.activeVoiceURI = r.selectedVoiceURI;
           if (r.themeChoice === "dark" || r.themeChoice === "light" || r.themeChoice === "system")
             this.themeChoice = r.themeChoice;
-          if (typeof r.panelX === "number" && typeof r.panelY === "number") {
-            this.host.style.right  = "";
+          if (typeof r.panelRight === "number" && typeof r.panelTop === "number") {
             this.host.style.bottom = "";
-            this.host.style.left   = `${r.panelX}px`;
-            this.host.style.top    = `${r.panelY}px`;
+            this.host.style.left   = "";
+            this.host.style.right  = `${r.panelRight}px`;
+            this.host.style.top    = `${r.panelTop}px`;
             this.hasDragged = true;
           }
           voiceURI = this.activeVoiceURI;
@@ -496,8 +498,8 @@ class ReadFlowWidget {
     if (this.saveDebounce) clearTimeout(this.saveDebounce);
     this.saveDebounce = setTimeout(() => {
       chrome.storage.local.set({
-        panelX: parseInt(this.host.style.left, 10),
-        panelY: parseInt(this.host.style.top,  10),
+        panelRight: parseInt(this.host.style.right, 10),
+        panelTop:   parseInt(this.host.style.top,   10),
       });
     }, 300);
   }
@@ -1013,28 +1015,29 @@ class ReadFlowWidget {
       if (!target.closest(".drag-dots")) return;
       e.preventDefault();
 
-      // Convert bottom/right to top/left for dragging
+      // Anchor by right+top so the widget always grows leftward
       if (!this.hasDragged) {
         const rect = this.host.getBoundingClientRect();
-        this.host.style.right  = "";
+        this.host.style.left   = "";
         this.host.style.bottom = "";
-        this.host.style.left   = `${rect.left}px`;
+        this.host.style.right  = `${window.innerWidth - rect.right}px`;
         this.host.style.top    = `${rect.top}px`;
         this.hasDragged = true;
       }
 
-      this.dragStartX  = me.clientX;
-      this.dragStartY  = me.clientY;
-      this.hostStartLeft = parseInt(this.host.style.left,  10);
-      this.hostStartTop  = parseInt(this.host.style.top,   10);
+      this.dragStartX     = me.clientX;
+      this.dragStartY     = me.clientY;
+      this.hostStartRight = parseInt(this.host.style.right, 10);
+      this.hostStartTop   = parseInt(this.host.style.top,   10);
 
       const onMove = (ev: MouseEvent) => {
+        // Moving right → smaller right value; moving left → larger right value
         const dx = ev.clientX - this.dragStartX;
         const dy = ev.clientY - this.dragStartY;
-        const x  = Math.max(0, Math.min(window.innerWidth  - 60, this.hostStartLeft + dx));
-        const y  = Math.max(0, Math.min(window.innerHeight - 50, this.hostStartTop  + dy));
-        this.host.style.left = `${x}px`;
-        this.host.style.top  = `${y}px`;
+        const r  = Math.max(0, Math.min(window.innerWidth  - 60, this.hostStartRight - dx));
+        const y  = Math.max(0, Math.min(window.innerHeight - 50, this.hostStartTop   + dy));
+        this.host.style.right = `${r}px`;
+        this.host.style.top   = `${y}px`;
         this.scheduleSavePosition();
       };
       const onUp = () => {
