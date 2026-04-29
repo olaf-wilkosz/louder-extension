@@ -240,6 +240,7 @@ const SHADOW_CSS = `
   opacity: 0; transition: opacity .2s ease;
 }
 [data-state="playing"] .progress-ring { opacity: 1; }
+.ring-track { stroke: var(--track-bg); }
 
 /* ── drag dots ── */
 .drag-dots {
@@ -701,7 +702,8 @@ class ReadFlowWidget {
     const trackCircle = document.createElementNS(ns, "circle");
     trackCircle.setAttribute("cx", String(SIZE / 2)); trackCircle.setAttribute("cy", String(SIZE / 2));
     trackCircle.setAttribute("r", String(R)); trackCircle.setAttribute("fill", "none");
-    trackCircle.setAttribute("stroke", "rgba(255,255,255,0.1)"); trackCircle.setAttribute("stroke-width", "2.2");
+    trackCircle.setAttribute("stroke-width", "2.2");
+    trackCircle.classList.add("ring-track");
     svg.appendChild(trackCircle);
 
     this.ringArc = document.createElementNS(ns, "circle") as SVGCircleElement;
