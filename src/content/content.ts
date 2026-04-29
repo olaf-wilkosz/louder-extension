@@ -71,8 +71,8 @@ const SHADOW_CSS = `
   all: initial;
   position: fixed;
   z-index: 2147483647;
-  right: 24px;
-  bottom: 24px;
+  right: 80px;
+  top: 240px;
   font-family: 'DM Sans', system-ui, sans-serif;
   font-size: 13px;
   user-select: none;
@@ -106,15 +106,16 @@ const SHADOW_CSS = `
   width: 19px; height: 19px; border-radius: 50%;
   background: var(--close-bg); border: 1px solid var(--close-border);
   display: flex; align-items: center; justify-content: center;
-  cursor: pointer; color: var(--icon); transition: background .15s;
+  cursor: pointer; color: var(--icon);
+  transition: background .15s, transform .15s, opacity .15s;
 }
-.close-btn:hover { background: #666; }
+.close-btn:hover { background: #666; transform: scale(1.15); }
 
 /* ── collapsed hover-reveal (chevron + close) ── */
 .hover-only {
   opacity: 0; pointer-events: none;
   max-width: 0; overflow: hidden;
-  transition: opacity .15s, max-width .15s;
+  transition: opacity .2s ease, max-width .2s ease;
 }
 .pill-collapsed:hover .hover-only {
   opacity: 1; pointer-events: auto; max-width: 34px;
@@ -956,6 +957,7 @@ class ReadFlowWidget {
     this.wState  = "collapsed";
     this.popup   = null;
     this.render();
+    this.host.style.display = "none";
   }
 
   private togglePopup(id: PopupId): void {
