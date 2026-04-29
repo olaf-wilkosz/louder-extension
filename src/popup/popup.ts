@@ -38,9 +38,24 @@ async function getActiveTabId(): Promise<number | undefined> {
 async function sendToContent(msg: Record<string, unknown>): Promise<void> {
   const tabId = await getActiveTabId();
   if (tabId == null) return;
-  chrome.tabs.sendMessage(tabId, msg).catch(() => {
-    setStatus("Could not reach content script.");
-  });
+
+  try {
+    await chrome.tabs.sendMessage(tabId, msg);
+  } catch {
+    // Content script not yet injected (page was open before extension loaded).
+    // Inject it on-demand, wait for it to register its listener, then retry.
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        files: ["content.js"],
+      });
+      // Give the script one tick to attach its message listener.
+      await new Promise<void>((res) => setTimeout(res, 50));
+      await chrome.tabs.sendMessage(tabId, msg);
+    } catch {
+      setStatus("Could not reach page — try refreshing the tab.");
+    }
+  }
 }
 
 function saveSettings(): void {
