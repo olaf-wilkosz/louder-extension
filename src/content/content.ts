@@ -142,6 +142,10 @@ const SHADOW_CSS = `
   transition: background .14s, color .14s;
 }
 .chev-btn:hover { background: var(--chip-bg-hover); color: var(--icon-hover); }
+/* When chevron is also hover-only, the width/opacity transitions must win */
+.chev-btn.hover-only {
+  transition: opacity .2s ease, max-width .2s ease, background .14s, color .14s;
+}
 
 /* ── play button ── */
 .play-btn {
