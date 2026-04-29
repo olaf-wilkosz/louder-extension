@@ -44,27 +44,23 @@ const LIGHT: ThemeVars = {
    SVG ICONS
 ═══════════════════════════════════════════════════════════════════ */
 const I = {
-  play:  `<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 3.2 13 8 5.5 12.8V3.2z"/></svg>`,
-  pause: `<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="2.5" width="3.2" height="11" rx="1.5"/><rect x="9.8" y="2.5" width="3.2" height="11" rx="1.5"/></svg>`,
+  play:    `<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 3.2 13 8 5.5 12.8V3.2z"/></svg>`,
+  pause:   `<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="2.5" width="3.2" height="11" rx="1.5"/><rect x="9.8" y="2.5" width="3.2" height="11" rx="1.5"/></svg>`,
   sliders: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"><line x1="2" y1="4" x2="14" y2="4"/><circle cx="5.5" cy="4" r="1.6" fill="currentColor" stroke="none"/><line x1="2" y1="8" x2="14" y2="8"/><circle cx="10.5" cy="8" r="1.6" fill="currentColor" stroke="none"/><line x1="2" y1="12" x2="14" y2="12"/><circle cx="6.5" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg>`,
   readSel: `<svg width="16" height="16" viewBox="0 0 18 18" fill="currentColor"><rect x="1" y="5" width="6.5" height="8" rx="1.2" opacity="0.85"/><rect x="10.5" y="5" width="6.5" height="8" rx="1.2" opacity="0.28"/><path d="M7.5 3.5 Q9 3.5 10.5 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" fill="none"/><line x1="9" y1="3.5" x2="9" y2="14.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M7.5 14.5 Q9 14.5 10.5 14.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" fill="none"/></svg>`,
-  person: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35"><circle cx="8" cy="5.5" r="2.5"/><path d="M2.5 14c0-3.04 2.46-5.5 5.5-5.5s5.5 2.46 5.5 5.5" stroke-linecap="round"/></svg>`,
-  chevR:  `<svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2l4 4-4 4"/></svg>`,
-  chevL:  `<svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(180deg);display:block"><path d="M4 2l4 4-4 4"/></svg>`,
-  close:  `<svg width="7" height="7" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1 1l6 6M7 1L1 7"/></svg>`,
+  person:  `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35"><circle cx="8" cy="5.5" r="2.5"/><path d="M2.5 14c0-3.04 2.46-5.5 5.5-5.5s5.5 2.46 5.5 5.5" stroke-linecap="round"/></svg>`,
+  // Single right-pointing chevron; CSS rotates it 180° in collapsed state
+  chev:    `<svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2l4 4-4 4"/></svg>`,
+  close:   `<svg width="7" height="7" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1 1l6 6M7 1L1 7"/></svg>`,
 };
 
 /* ═══════════════════════════════════════════════════════════════════
-   SHADOW CSS
+   SHADOW CSS  —  all state driven by [data-state] on .root
 ═══════════════════════════════════════════════════════════════════ */
 const SHADOW_CSS = `
 @keyframes popIn {
   from { opacity:0; transform:scale(0.93) translateY(-4px); }
   to   { opacity:1; transform:scale(1) translateY(0); }
-}
-@keyframes expandLeft {
-  from { opacity:0; transform:scaleX(0.6); }
-  to   { opacity:1; transform:scaleX(1); }
 }
 
 :host {
@@ -82,23 +78,16 @@ const SHADOW_CSS = `
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* ── root wrapper (relative for abs children) ── */
 .root { position: relative; }
 
 /* ── pill ── */
 .pill {
-  display: flex;
-  align-items: center;
-  background: var(--bg);
-  border-radius: 100px;
+  display: flex; align-items: center; gap: 1px;
+  background: var(--bg); border-radius: 100px;
   box-shadow: 0 0 0 1px var(--border), 0 8px 28px rgba(0,0,0,0.45);
-  position: relative;
-  width: fit-content;
+  position: relative; width: fit-content;
+  padding: 6px 4px 6px 6px;
 }
-.pill-collapsed { gap: 2px; padding: 6px 4px 6px 6px; }
-.pill-expanded  { gap: 1px; padding: 6px 4px 6px 8px;
-  animation: expandLeft .22s cubic-bezier(0.4,0,0.2,1) both;
-  transform-origin: right center; }
 
 /* ── close button ── */
 .close-btn {
@@ -107,18 +96,54 @@ const SHADOW_CSS = `
   background: var(--close-bg); border: 1px solid var(--close-border);
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; color: var(--icon);
-  transition: background .15s, transform .15s, opacity .15s;
+  opacity: 0; pointer-events: none;
+  transition: opacity .15s, background .15s, transform .15s;
 }
 .close-btn:hover { background: #666; transform: scale(1.15); }
+[data-state="expanded"] .close-btn,
+[data-state="playing"]  .close-btn { opacity: 1; pointer-events: auto; }
+[data-state="collapsed"] .pill:hover .close-btn { opacity: 1; pointer-events: auto; }
 
-/* ── collapsed hover-reveal (chevron + close) ── */
-.hover-only {
-  opacity: 0; pointer-events: none;
-  max-width: 0; overflow: hidden;
-  transition: opacity .2s ease, max-width .2s ease;
+/* ── chevron button ── */
+.chev-btn {
+  width: 28px; height: 28px; border-radius: 50%; border: none;
+  background: transparent; color: var(--icon);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0;
+  /* collapsed: takes no space, invisible */
+  max-width: 0; overflow: hidden; opacity: 0; pointer-events: none;
+  transition: max-width .2s ease, opacity .2s ease, background .14s, color .14s;
 }
-.pill-collapsed:hover .hover-only {
-  opacity: 1; pointer-events: auto; max-width: 34px;
+.chev-btn:hover { background: var(--chip-bg-hover); color: var(--icon-hover); }
+
+/* show on hover when collapsed */
+[data-state="collapsed"] .pill:hover .chev-btn {
+  max-width: 28px; opacity: 1; pointer-events: auto;
+}
+/* always visible when expanded/playing */
+[data-state="expanded"] .chev-btn,
+[data-state="playing"]  .chev-btn {
+  max-width: 28px; opacity: 1; pointer-events: auto;
+}
+
+/* chevron direction: rotate the inner icon */
+.chev-icon {
+  display: block;
+  transition: transform .25s ease;
+}
+[data-state="collapsed"] .chev-icon { transform: rotate(180deg); }
+[data-state="expanded"]  .chev-icon,
+[data-state="playing"]   .chev-icon { transform: rotate(0deg); }
+
+/* ── expandable section (hidden in collapsed) ── */
+.expandable {
+  display: flex; align-items: center; gap: 1px;
+  max-width: 0; overflow: hidden; opacity: 0; pointer-events: none;
+  transition: max-width .22s cubic-bezier(0.4,0,0.2,1), opacity .18s ease;
+}
+[data-state="expanded"] .expandable,
+[data-state="playing"]  .expandable {
+  max-width: 400px; opacity: 1; pointer-events: auto;
 }
 
 /* ── icon buttons ── */
@@ -130,68 +155,42 @@ const SHADOW_CSS = `
   transition: background .14s, color .14s;
   font-family: inherit;
 }
-.icon-btn:hover { background: var(--chip-bg-hover); color: var(--icon-hover); }
+.icon-btn:hover  { background: var(--chip-bg-hover); color: var(--icon-hover); }
 .icon-btn.active { background: rgba(59,158,255,0.13); color: ${ACCENT}; }
 
-/* ── chevron button ── */
-.chev-btn {
-  width: 28px; height: 28px; border-radius: 50%; border: none;
-  background: transparent; color: var(--icon);
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; flex-shrink: 0;
-  transition: background .14s, color .14s;
+/* speed badge inside icon-btn */
+.speed-badge {
+  font-size: 11.5px; font-weight: 700; letter-spacing: -.02em;
+  min-width: 22px; text-align: center;
 }
-.chev-btn:hover { background: var(--chip-bg-hover); color: var(--icon-hover); }
-/* When chevron is also hover-only, the width/opacity transitions must win */
-.chev-btn.hover-only {
-  transition: opacity .2s ease, max-width .2s ease, background .14s, color .14s;
-}
-
-/* ── play button ── */
-.play-btn {
-  width: 36px; height: 36px; border-radius: 50%; border: none;
-  background: ${ACCENT}; box-shadow: 0 0 16px ${ACCENT_GLOW};
-  color: #fff; display: flex; align-items: center; justify-content: center;
-  cursor: pointer; flex-shrink: 0; position: relative; z-index: 1;
-  transition: filter .15s;
-}
-.play-btn:hover { filter: brightness(1.12); }
-.play-btn:active { transform: scale(0.92); }
-
-/* ── play wrapper (holds ring + button) ── */
-.play-wrap {
-  position: relative; display: flex; align-items: center;
-  justify-content: center; width: 36px; height: 36px; flex-shrink: 0;
-}
-
-/* ── drag dots ── */
-.drag-dots {
-  display: flex; flex-direction: column; gap: 3px;
-  padding: 8px 8px 8px 4px; cursor: grab;
-  opacity: .22; transition: opacity .15s;
-}
-.drag-dots:active { cursor: grabbing; }
-.drag-dots:hover { opacity: .55; }
-.drag-row { display: flex; gap: 3px; }
-.drag-dot { width: 3px; height: 3px; border-radius: 50%; background: var(--text); }
 
 /* ── divider ── */
-.divider { width: 1px; height: 18px; background: var(--divider); flex-shrink: 0; margin: 0 3px; }
+.divider {
+  width: 1px; height: 18px; background: var(--divider);
+  flex-shrink: 0; margin: 0 3px;
+}
 
-/* ── timer slot ── */
+/* ── timer slot (hidden unless playing) ── */
 .timer-slot {
   width: 80px; height: 34px; position: relative;
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; overflow: hidden;
+  max-width: 0; opacity: 0; pointer-events: none;
+  transition: max-width .22s cubic-bezier(0.4,0,0.2,1), opacity .18s ease;
+}
+[data-state="playing"] .timer-slot {
+  max-width: 90px; opacity: 1; pointer-events: auto;
 }
 .timer-val {
-  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  font-size: 12px; font-weight: 600; letter-spacing: .04em; color: var(--timer);
-  font-variant-numeric: tabular-nums;
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 600; letter-spacing: .04em;
+  color: var(--timer); font-variant-numeric: tabular-nums;
   opacity: 1; transition: opacity .18s; pointer-events: none;
 }
 .skip-btns {
-  position: absolute; inset: 0; display: flex; align-items: center;
-  justify-content: center; gap: 4px;
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center; gap: 4px;
   opacity: 0; transition: opacity .18s;
 }
 .timer-slot:hover .timer-val { opacity: 0; }
@@ -204,6 +203,41 @@ const SHADOW_CSS = `
   transition: background .12s, color .12s;
 }
 .skip-btn:hover { background: var(--chip-bg-hover); color: var(--icon-hover); }
+
+/* ── play button ── */
+.play-btn {
+  width: 36px; height: 36px; border-radius: 50%; border: none;
+  background: ${ACCENT}; box-shadow: 0 0 16px ${ACCENT_GLOW};
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0; position: relative; z-index: 1;
+  transition: filter .15s;
+}
+.play-btn:hover  { filter: brightness(1.12); }
+.play-btn:active { transform: scale(0.92); }
+
+/* ── play wrapper ── */
+.play-wrap {
+  position: relative; display: flex; align-items: center;
+  justify-content: center; width: 36px; height: 36px; flex-shrink: 0;
+}
+
+/* ── progress ring (hidden unless playing) ── */
+.progress-ring {
+  position: absolute; inset: -6px; z-index: 0; pointer-events: none;
+  opacity: 0; transition: opacity .2s ease;
+}
+[data-state="playing"] .progress-ring { opacity: 1; }
+
+/* ── drag dots ── */
+.drag-dots {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 8px 8px 8px 4px; cursor: grab;
+  opacity: .22; transition: opacity .15s;
+}
+.drag-dots:active { cursor: grabbing; }
+.drag-dots:hover  { opacity: .55; }
+.drag-row { display: flex; gap: 3px; }
+.drag-dot { width: 3px; height: 3px; border-radius: 50%; background: var(--text); }
 
 /* ── panels container ── */
 .panels-wrap {
@@ -270,10 +304,10 @@ const SHADOW_CSS = `
 }
 .voice-item:hover:not(.active) { background: var(--voice-hover); }
 .voice-item.active { background: rgba(59,158,255,0.13); }
-.voice-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.voice-dot  { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 .voice-name { font-size: 13px; line-height: 1.2; color: var(--icon); }
 .voice-item.active .voice-name { font-weight: 600; color: var(--text); }
-.voice-hint { font-size: 10px; color: var(--subtext); margin-top: 1px; }
+.voice-hint   { font-size: 10px; color: var(--subtext); margin-top: 1px; }
 .voice-accent { margin-left: auto; width: 6px; height: 6px; border-radius: 50%; background: ${ACCENT}; }
 
 /* ── settings panel ── */
@@ -345,25 +379,24 @@ function getVoice(): SpeechSynthesisVoice | null {
   return speechSynthesis.getVoices().find(v => v.voiceURI === voiceURI) ?? null;
 }
 
-function speakFrom(index: number, onSentence?: (i: number) => void, onDone?: () => void): void {
+function speakFrom(index: number, onDone?: () => void): void {
   if (index >= sentences.length) { removeHighlight(); onDone?.(); return; }
   currentIndex = index;
   const sentence = sentences[index];
   highlightSentence(sentence);
-  onSentence?.(index);
 
   const utt = new SpeechSynthesisUtterance(sentence);
   utt.rate = ttsSpeed;
   const v = getVoice(); if (v) utt.voice = v;
-  utt.onend  = () => { removeHighlight(); if (!isPaused) speakFrom(currentIndex + 1, onSentence, onDone); };
-  utt.onerror = e => { if (e.error !== "interrupted") speakFrom(currentIndex + 1, onSentence, onDone); };
+  utt.onend  = () => { removeHighlight(); if (!isPaused) speakFrom(currentIndex + 1, onDone); };
+  utt.onerror = e => { if (e.error !== "interrupted") speakFrom(currentIndex + 1, onDone); };
   speechSynthesis.speak(utt);
 }
 
-function startTTS(text?: string, onSentence?: (i: number) => void, onDone?: () => void): void {
+function startTTS(text?: string, onDone?: () => void): void {
   speechSynthesis.cancel(); removeHighlight(); isPaused = false;
   sentences = splitSentences(text ?? extractText());
-  speakFrom(0, onSentence, onDone);
+  speakFrom(0, onDone);
 }
 
 function stopTTS(): void {
@@ -371,41 +404,44 @@ function stopTTS(): void {
   sentences = []; currentIndex = 0;
 }
 
-function pauseTTS(): void { isPaused = true; speechSynthesis.pause(); }
-
-function resumeTTS(): void { isPaused = false; speechSynthesis.resume(); }
-
 function skipSentences(delta: number): void {
   speechSynthesis.cancel();
-  const next = Math.max(0, Math.min(sentences.length - 1, currentIndex + delta));
-  speakFrom(next);
+  speakFrom(Math.max(0, Math.min(sentences.length - 1, currentIndex + delta)));
 }
 
 /* ═══════════════════════════════════════════════════════════════════
    WIDGET
 ═══════════════════════════════════════════════════════════════════ */
-type WidgetState  = "collapsed" | "expanded" | "playing";
-type PopupId      = "speed" | "voice" | "settings";
-type ThemeChoice  = "dark" | "light" | "system";
+type WidgetState = "collapsed" | "expanded" | "playing";
+type PopupId     = "speed" | "voice" | "settings";
+type ThemeChoice = "dark" | "light" | "system";
 
 class ReadFlowWidget {
   private host: HTMLElement;
   private shadow: ShadowRoot;
 
-  // Widget state
+  // State
   private wState: WidgetState = "collapsed";
   private popup: PopupId | null = null;
   private themeChoice: ThemeChoice = "dark";
   private speed = 1;
   private activeVoiceURI = "";
-
-  // Playback timer
   private elapsed = 0;
   private totalSecs = 300;
   private timerInterval: ReturnType<typeof setInterval> | null = null;
 
+  // Stable DOM refs (set in buildDOM, never reassigned)
+  private root!: HTMLElement;
+  private panelsCont!: HTMLElement;
+  private playBtnEl!: HTMLButtonElement;
+  private speedBadgeEl!: HTMLSpanElement;
+  private timerEl!: HTMLSpanElement;
+  private ringArc!: SVGCircleElement;
+  private settingsBtnEl!: HTMLButtonElement;
+  private speedBtnEl!: HTMLButtonElement;
+  private voiceBtnEl!: HTMLButtonElement;
+
   // Drag
-  private dragging = false;
   private dragStartX = 0; private dragStartY = 0;
   private hostStartRight = 0; private hostStartTop = 0;
   private hasDragged = false;
@@ -420,13 +456,12 @@ class ReadFlowWidget {
     this.injectFont();
     this.loadSettings().then(() => {
       this.applyThemeVars();
-      this.render();
+      this.buildDOM();
       this.setupDrag();
     });
 
-    // Listen for system theme changes
     window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
-      if (this.themeChoice === "system") { this.applyThemeVars(); this.render(); }
+      if (this.themeChoice === "system") this.applyThemeVars();
     });
   }
 
@@ -447,23 +482,23 @@ class ReadFlowWidget {
   }
 
   private applyThemeVars(): void {
-    const t: ThemeVars = this.resolvedTheme() === "light" ? LIGHT : DARK;
+    const t = this.resolvedTheme() === "light" ? LIGHT : DARK;
     const s = this.host.style;
-    s.setProperty("--bg",           t.bg);
-    s.setProperty("--panel-bg",     t.panelBg);
-    s.setProperty("--border",       t.border);
-    s.setProperty("--divider",      t.divider);
-    s.setProperty("--icon",         t.icon);
-    s.setProperty("--icon-hover",   t.iconHover);
-    s.setProperty("--text",         t.text);
-    s.setProperty("--subtext",      t.subtext);
-    s.setProperty("--timer",        t.timer);
-    s.setProperty("--close-bg",     t.closeBg);
-    s.setProperty("--close-border", t.closeBorder);
-    s.setProperty("--track-bg",     t.trackBg);
-    s.setProperty("--chip-bg",      t.chipBg);
-    s.setProperty("--chip-bg-hover",t.chipBgHover);
-    s.setProperty("--voice-hover",  t.voiceHover);
+    s.setProperty("--bg",            t.bg);
+    s.setProperty("--panel-bg",      t.panelBg);
+    s.setProperty("--border",        t.border);
+    s.setProperty("--divider",       t.divider);
+    s.setProperty("--icon",          t.icon);
+    s.setProperty("--icon-hover",    t.iconHover);
+    s.setProperty("--text",          t.text);
+    s.setProperty("--subtext",       t.subtext);
+    s.setProperty("--timer",         t.timer);
+    s.setProperty("--close-bg",      t.closeBg);
+    s.setProperty("--close-border",  t.closeBorder);
+    s.setProperty("--track-bg",      t.trackBg);
+    s.setProperty("--chip-bg",       t.chipBg);
+    s.setProperty("--chip-bg-hover", t.chipBgHover);
+    s.setProperty("--voice-hover",   t.voiceHover);
   }
 
   // ── Persistence ───────────────────────────────────────────────────
@@ -477,8 +512,7 @@ class ReadFlowWidget {
           if (r.themeChoice === "dark" || r.themeChoice === "light" || r.themeChoice === "system")
             this.themeChoice = r.themeChoice;
           if (typeof r.panelRight === "number" && typeof r.panelTop === "number") {
-            this.host.style.bottom = "";
-            this.host.style.left   = "";
+            this.host.style.bottom = ""; this.host.style.left = "";
             this.host.style.right  = `${r.panelRight}px`;
             this.host.style.top    = `${r.panelTop}px`;
             this.hasDragged = true;
@@ -509,166 +543,224 @@ class ReadFlowWidget {
     }, 300);
   }
 
-  // ── Render entry ──────────────────────────────────────────────────
-  render(): void {
+  // ── Build DOM (called once) ───────────────────────────────────────
+  private buildDOM(): void {
     this.shadow.innerHTML = "";
 
     const styleEl = document.createElement("style");
     styleEl.textContent = SHADOW_CSS;
     this.shadow.appendChild(styleEl);
 
-    const root = document.createElement("div");
-    root.className = "root";
-    this.shadow.appendChild(root);
+    this.root = document.createElement("div");
+    this.root.className = "root";
+    this.root.dataset.state = this.wState;
+    this.shadow.appendChild(this.root);
 
-    if (this.wState === "collapsed") {
-      root.appendChild(this.buildCollapsed());
-    } else {
-      const { pill, panels } = this.buildExpandedPlaying();
-      root.appendChild(panels);
-      root.appendChild(pill);
-    }
-  }
+    // Panels container (rebuilt on popup toggle, pill never touched)
+    this.panelsCont = document.createElement("div");
+    this.root.appendChild(this.panelsCont);
 
-  // ── Collapsed pill ────────────────────────────────────────────────
-  private buildCollapsed(): HTMLElement {
+    // ── Pill ──────────────────────────────────────────────────────
     const pill = document.createElement("div");
-    pill.className = "pill pill-collapsed";
+    pill.className = "pill";
+    this.root.appendChild(pill);
 
-    // Close button (hover-only, abs positioned)
-    const closeBtn = this.makeCloseBtn();
-    closeBtn.classList.add("hover-only");
+    // Close button
+    const closeBtn = document.createElement("div");
+    closeBtn.className = "close-btn";
+    closeBtn.innerHTML = I.close;
+    closeBtn.addEventListener("click", e => { e.stopPropagation(); this.handleClose(); });
     pill.appendChild(closeBtn);
 
-    // Chevron expand (hover-only)
-    const chev = document.createElement("button");
-    chev.className = "chev-btn hover-only";
-    chev.title = "Expand";
-    chev.innerHTML = I.chevL;
-    chev.addEventListener("click", e => { e.stopPropagation(); this.transition("expanded"); });
-    pill.appendChild(chev);
+    // Chevron — single icon rotated by CSS
+    const chevBtn = document.createElement("button");
+    chevBtn.className = "chev-btn";
+    const chevIcon = document.createElement("span");
+    chevIcon.className = "chev-icon";
+    chevIcon.innerHTML = I.chev;
+    chevBtn.appendChild(chevIcon);
+    chevBtn.addEventListener("click", () => {
+      if (this.wState === "collapsed") this.goExpanded();
+      else this.goCollapsed();
+    });
+    pill.appendChild(chevBtn);
 
-    // Play button
-    const playBtn = document.createElement("button");
-    playBtn.className = "play-btn";
-    playBtn.innerHTML = I.play;
-    playBtn.addEventListener("click", () => this.handlePlayClick());
-    pill.appendChild(playBtn);
-
-    const spacer = document.createElement("div");
-    spacer.style.width = "4px";
-    pill.appendChild(spacer);
-
-    pill.appendChild(this.makeDragDots());
-    return pill;
-  }
-
-  // ── Expanded / Playing pill ───────────────────────────────────────
-  private buildExpandedPlaying(): { pill: HTMLElement; panels: HTMLElement } {
-    const isPlaying = this.wState === "playing";
-
-    const pill = document.createElement("div");
-    pill.className = "pill pill-expanded";
-
-    // Close button (always visible)
-    pill.appendChild(this.makeCloseBtn());
-
-    // Chevron collapse
-    const chev = document.createElement("button");
-    chev.className = "chev-btn";
-    chev.title = "Collapse";
-    chev.innerHTML = I.chevR;
-    chev.addEventListener("click", () => this.transition("collapsed"));
-    pill.appendChild(chev);
+    // ── Expandable section ─────────────────────────────────────────
+    const expandable = document.createElement("div");
+    expandable.className = "expandable";
 
     // Settings
-    const settingsBtn = this.makeIconBtn(I.sliders, "Settings", this.popup === "settings");
-    settingsBtn.addEventListener("click", () => this.togglePopup("settings"));
-    pill.appendChild(settingsBtn);
+    this.settingsBtnEl = document.createElement("button");
+    this.settingsBtnEl.className = "icon-btn";
+    this.settingsBtnEl.title = "Settings";
+    this.settingsBtnEl.innerHTML = I.sliders;
+    this.settingsBtnEl.addEventListener("click", () => this.togglePopup("settings"));
+    expandable.appendChild(this.settingsBtnEl);
 
     // Read selection
-    const readSelBtn = this.makeIconBtn(I.readSel, "Read selection", false);
+    const readSelBtn = document.createElement("button");
+    readSelBtn.className = "icon-btn";
+    readSelBtn.title = "Read selection";
+    readSelBtn.innerHTML = I.readSel;
     readSelBtn.addEventListener("click", () => {
       const sel = window.getSelection()?.toString().trim();
-      if (sel) { this.startPlaying(sel); } else { this.startPlaying(); }
+      this.startPlaying(sel || undefined);
     });
-    pill.appendChild(readSelBtn);
+    expandable.appendChild(readSelBtn);
 
     // Speed badge
-    const speedBtn = this.makeIconBtn(
-      `<span style="font-size:11.5px;font-weight:700;letter-spacing:-.02em;min-width:22px;text-align:center">${this.speed}×</span>`,
-      "Speed", this.popup === "speed"
-    );
-    speedBtn.addEventListener("click", () => this.togglePopup("speed"));
-    pill.appendChild(speedBtn);
+    this.speedBtnEl = document.createElement("button");
+    this.speedBtnEl.className = "icon-btn";
+    this.speedBtnEl.title = "Speed";
+    this.speedBadgeEl = document.createElement("span");
+    this.speedBadgeEl.className = "speed-badge";
+    this.speedBadgeEl.textContent = `${this.speed}×`;
+    this.speedBtnEl.appendChild(this.speedBadgeEl);
+    this.speedBtnEl.addEventListener("click", () => this.togglePopup("speed"));
+    expandable.appendChild(this.speedBtnEl);
 
     // Voice
-    const voiceBtn = this.makeIconBtn(I.person, "Voice", this.popup === "voice");
-    voiceBtn.addEventListener("click", () => this.togglePopup("voice"));
-    pill.appendChild(voiceBtn);
+    this.voiceBtnEl = document.createElement("button");
+    this.voiceBtnEl.className = "icon-btn";
+    this.voiceBtnEl.title = "Voice";
+    this.voiceBtnEl.innerHTML = I.person;
+    this.voiceBtnEl.addEventListener("click", () => this.togglePopup("voice"));
+    expandable.appendChild(this.voiceBtnEl);
 
     // Divider
-    const div = document.createElement("div");
-    div.className = "divider";
-    pill.appendChild(div);
+    const divider = document.createElement("div");
+    divider.className = "divider";
+    expandable.appendChild(divider);
 
-    // Timer / skip slot (only while playing)
-    if (isPlaying) {
-      const slot = document.createElement("div");
-      slot.className = "timer-slot";
-      slot.id = "rf-timer-slot";
+    pill.appendChild(expandable);
 
-      const timerVal = document.createElement("span");
-      timerVal.className = "timer-val";
-      timerVal.id = "rf-timer";
-      timerVal.textContent = this.fmtTime(this.elapsed);
-      slot.appendChild(timerVal);
+    // ── Timer slot ────────────────────────────────────────────────
+    const timerSlot = document.createElement("div");
+    timerSlot.className = "timer-slot";
 
-      const skipBtns = document.createElement("div");
-      skipBtns.className = "skip-btns";
-      skipBtns.innerHTML = `
-        <button class="skip-btn" id="rf-skip-back"><span style="font-size:10px">◂</span>10</button>
-        <button class="skip-btn" id="rf-skip-fwd">10<span style="font-size:10px">▸</span></button>
-      `;
-      slot.appendChild(skipBtns);
-      pill.appendChild(slot);
-    }
+    this.timerEl = document.createElement("span");
+    this.timerEl.className = "timer-val";
+    this.timerEl.textContent = "00:00";
+    timerSlot.appendChild(this.timerEl);
 
-    // Play/pause + progress ring wrapper
+    const skipBtns = document.createElement("div");
+    skipBtns.className = "skip-btns";
+
+    const skipBack = document.createElement("button");
+    skipBack.className = "skip-btn";
+    skipBack.innerHTML = `<span style="font-size:10px">◂</span>10`;
+    skipBack.addEventListener("click", () => {
+      this.elapsed = Math.max(0, this.elapsed - 10);
+      skipSentences(-Math.round(10 * this.speed * BASE_WPM / 60 / 15));
+    });
+    skipBtns.appendChild(skipBack);
+
+    const skipFwd = document.createElement("button");
+    skipFwd.className = "skip-btn";
+    skipFwd.innerHTML = `10<span style="font-size:10px">▸</span>`;
+    skipFwd.addEventListener("click", () => {
+      this.elapsed = Math.min(this.totalSecs, this.elapsed + 10);
+      skipSentences(Math.round(10 * this.speed * BASE_WPM / 60 / 15));
+    });
+    skipBtns.appendChild(skipFwd);
+
+    timerSlot.appendChild(skipBtns);
+    pill.appendChild(timerSlot);
+
+    // ── Play wrap + ring ──────────────────────────────────────────
     const playWrap = document.createElement("div");
     playWrap.className = "play-wrap";
 
-    if (isPlaying) {
-      const ring = this.buildProgressRing(this.elapsed, this.totalSecs);
-      ring.id = "rf-ring";
-      playWrap.appendChild(ring);
-    }
+    // Progress ring (always in DOM, opacity controlled by CSS)
+    const R = 20, SIZE = 48, CIRC = 2 * Math.PI * R;
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg") as SVGSVGElement;
+    svg.classList.add("progress-ring");
+    svg.setAttribute("width",  String(SIZE));
+    svg.setAttribute("height", String(SIZE));
+    svg.style.transform = "rotate(-90deg)";
 
-    const playBtn = document.createElement("button");
-    playBtn.className = "play-btn";
-    playBtn.innerHTML = isPlaying ? I.pause : I.play;
-    playBtn.addEventListener("click", () => this.handlePlayClick());
-    playWrap.appendChild(playBtn);
+    const trackCircle = document.createElementNS(ns, "circle");
+    trackCircle.setAttribute("cx", String(SIZE / 2)); trackCircle.setAttribute("cy", String(SIZE / 2));
+    trackCircle.setAttribute("r", String(R)); trackCircle.setAttribute("fill", "none");
+    trackCircle.setAttribute("stroke", "rgba(255,255,255,0.1)"); trackCircle.setAttribute("stroke-width", "2.2");
+    svg.appendChild(trackCircle);
+
+    this.ringArc = document.createElementNS(ns, "circle") as SVGCircleElement;
+    this.ringArc.setAttribute("cx", String(SIZE / 2)); this.ringArc.setAttribute("cy", String(SIZE / 2));
+    this.ringArc.setAttribute("r", String(R)); this.ringArc.setAttribute("fill", "none");
+    this.ringArc.setAttribute("stroke", ACCENT); this.ringArc.setAttribute("stroke-width", "2.2");
+    this.ringArc.setAttribute("stroke-linecap", "round");
+    this.ringArc.setAttribute("stroke-dasharray", `0 ${CIRC}`);
+    this.ringArc.style.transition = "stroke-dasharray 1s linear";
+    svg.appendChild(this.ringArc);
+
+    playWrap.appendChild(svg);
+
+    this.playBtnEl = document.createElement("button");
+    this.playBtnEl.className = "play-btn";
+    this.playBtnEl.innerHTML = I.play;
+    this.playBtnEl.addEventListener("click", () => this.handlePlayClick());
+    playWrap.appendChild(this.playBtnEl);
+
     pill.appendChild(playWrap);
 
+    // Spacer + drag dots
     const spacer = document.createElement("div");
     spacer.style.width = "6px";
     pill.appendChild(spacer);
-
     pill.appendChild(this.makeDragDots());
 
-    // Build open panel (absolute positioned above pill area)
-    const panelsWrap = document.createElement("div");
-    if (this.popup) {
-      const isRight = this.popup === "speed" || this.popup === "voice";
-      panelsWrap.className = `panels-wrap ${isRight ? "right" : "left"}`;
-      panelsWrap.appendChild(this.buildPanel(this.popup));
-    }
-
-    return { pill, panels: panelsWrap };
+    // Close panel on outside click
+    document.addEventListener("mousedown", (e: MouseEvent) => {
+      if (this.popup && !this.host.contains(e.target as Node)) this.togglePopup(null as unknown as PopupId);
+    });
   }
 
-  // ── Panel builder ─────────────────────────────────────────────────
+  // ── State transitions (just flip data-state + minimal DOM) ───────
+  private goCollapsed(): void {
+    this.wState = "collapsed";
+    this.root.dataset.state = "collapsed";
+    this.playBtnEl.innerHTML = I.play;
+    this.stopTimer();
+    this.setPopup(null);
+  }
+
+  private goExpanded(): void {
+    this.wState = "expanded";
+    this.root.dataset.state = "expanded";
+    this.playBtnEl.innerHTML = I.play;
+    this.setPopup(null);
+  }
+
+  private goPlaying(): void {
+    this.wState = "playing";
+    this.root.dataset.state = "playing";
+    this.playBtnEl.innerHTML = I.pause;
+  }
+
+  // ── Popup ─────────────────────────────────────────────────────────
+  private setPopup(id: PopupId | null): void {
+    this.popup = id;
+    this.settingsBtnEl.classList.toggle("active", id === "settings");
+    this.speedBtnEl.classList.toggle("active",    id === "speed");
+    this.voiceBtnEl.classList.toggle("active",    id === "voice");
+
+    this.panelsCont.innerHTML = "";
+    if (!id) return;
+
+    const isRight = id === "speed" || id === "voice";
+    const wrap = document.createElement("div");
+    wrap.className = `panels-wrap ${isRight ? "right" : "left"}`;
+    wrap.appendChild(this.buildPanel(id));
+    this.panelsCont.appendChild(wrap);
+  }
+
+  private togglePopup(id: PopupId): void {
+    this.setPopup(this.popup === id ? null : id);
+  }
+
+  // ── Panel builders ────────────────────────────────────────────────
   private buildPanel(id: PopupId): HTMLElement {
     if (id === "speed")    return this.buildSpeedPanel();
     if (id === "voice")    return this.buildVoicePanel();
@@ -680,81 +772,62 @@ class ReadFlowWidget {
     wrap.className = "panel speed-panel";
 
     const idx  = SPEED_STOPS.indexOf(this.speed);
-    const pct  = idx / (SPEED_STOPS.length - 1);          // 0=top, 1=bottom
+    const pct  = idx / (SPEED_STOPS.length - 1);
     const wpm  = Math.round(this.speed * BASE_WPM);
 
-    // Header
     const hdr = document.createElement("div");
     hdr.className = "speed-hdr";
-    hdr.innerHTML = `
-      <div>
-        <div class="speed-hdr-val">${this.speed}×</div>
-        <div class="speed-hdr-wpm">${wpm} wpm</div>
-      </div>`;
+    hdr.innerHTML = `<div><div class="speed-hdr-val">${this.speed}×</div><div class="speed-hdr-wpm">${wpm} wpm</div></div>`;
     const hdrClose = document.createElement("div");
-    hdrClose.className = "panel-close";
-    hdrClose.innerHTML = I.close;
-    hdrClose.addEventListener("click", () => this.closePopup());
+    hdrClose.className = "panel-close"; hdrClose.innerHTML = I.close;
+    hdrClose.addEventListener("click", () => this.setPopup(null));
     hdr.appendChild(hdrClose);
     wrap.appendChild(hdr);
 
-    // Body
     const body = document.createElement("div");
     body.className = "speed-body";
 
-    // Track column
     const trackCol = document.createElement("div");
     trackCol.className = "speed-track-col";
 
     const stepUp = document.createElement("button");
     stepUp.className = "step-btn"; stepUp.textContent = "+";
-    stepUp.addEventListener("click", () => {
-      const n = SPEED_STOPS.indexOf(this.speed) - 1;
-      if (n >= 0) this.setSpeed(SPEED_STOPS[n]);
-    });
+    stepUp.addEventListener("click", () => { const n = SPEED_STOPS.indexOf(this.speed) - 1; if (n >= 0) this.applySpeed(SPEED_STOPS[n]); });
     trackCol.appendChild(stepUp);
 
     const track = document.createElement("div");
     track.className = "speed-track";
     track.innerHTML = `
       <div class="speed-track-bg"></div>
-      <div class="speed-track-fill" style="top:${pct * 100}%;height:${(1 - pct) * 100}%"></div>
-      <div class="speed-handle" style="top:${pct * 100}%"></div>`;
+      <div class="speed-track-fill" style="top:${pct*100}%;height:${(1-pct)*100}%"></div>
+      <div class="speed-handle" style="top:${pct*100}%"></div>`;
 
-    // Track drag
-    const onTrackPointer = (clientY: number) => {
+    const pickFromY = (clientY: number) => {
       const rect = track.getBoundingClientRect();
       const ratio = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
-      const i = Math.round(ratio * (SPEED_STOPS.length - 1));
-      this.setSpeed(SPEED_STOPS[i]);
+      this.applySpeed(SPEED_STOPS[Math.round(ratio * (SPEED_STOPS.length - 1))]);
     };
     track.addEventListener("mousedown", e => {
-      e.preventDefault();
-      onTrackPointer(e.clientY);
-      const onMove = (ev: MouseEvent) => onTrackPointer(ev.clientY);
+      e.preventDefault(); pickFromY(e.clientY);
+      const onMove = (ev: MouseEvent) => pickFromY(ev.clientY);
       const onUp   = () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
-      window.addEventListener("mousemove", onMove);
-      window.addEventListener("mouseup",   onUp);
+      window.addEventListener("mousemove", onMove); window.addEventListener("mouseup", onUp);
     });
     trackCol.appendChild(track);
 
     const stepDn = document.createElement("button");
     stepDn.className = "step-btn"; stepDn.textContent = "−";
-    stepDn.addEventListener("click", () => {
-      const n = SPEED_STOPS.indexOf(this.speed) + 1;
-      if (n < SPEED_STOPS.length) this.setSpeed(SPEED_STOPS[n]);
-    });
+    stepDn.addEventListener("click", () => { const n = SPEED_STOPS.indexOf(this.speed) + 1; if (n < SPEED_STOPS.length) this.applySpeed(SPEED_STOPS[n]); });
     trackCol.appendChild(stepDn);
     body.appendChild(trackCol);
 
-    // Labels column
     const labelsCol = document.createElement("div");
     labelsCol.className = "speed-labels";
     SPEED_STOPS.forEach(s => {
       const lbl = document.createElement("button");
       lbl.className = `speed-label${s === this.speed ? " active" : ""}`;
       lbl.textContent = `${s}×`;
-      lbl.addEventListener("click", () => this.setSpeed(s));
+      lbl.addEventListener("click", () => this.applySpeed(s));
       labelsCol.appendChild(lbl);
     });
     body.appendChild(labelsCol);
@@ -770,19 +843,16 @@ class ReadFlowWidget {
     hdr.className = "panel-hdr";
     hdr.innerHTML = `<span class="panel-lbl">Voice</span>`;
     const hdrClose = document.createElement("div");
-    hdrClose.className = "panel-close";
-    hdrClose.innerHTML = I.close;
-    hdrClose.addEventListener("click", () => this.closePopup());
+    hdrClose.className = "panel-close"; hdrClose.innerHTML = I.close;
+    hdrClose.addEventListener("click", () => this.setPopup(null));
     hdr.appendChild(hdrClose);
     wrap.appendChild(hdr);
 
-    // Build voice list from actual system voices
     const voices = speechSynthesis.getVoices()
       .filter(v => v.lang.startsWith("pl") || v.lang.startsWith("en"))
       .slice(0, 4);
 
-    // Always show a Default entry
-    const entries: Array<{ uri: string; name: string; hint: string; dot: string }> = [
+    const entries = [
       { uri: "", name: "Default", hint: "System voice", dot: DOT_COLORS[0] },
       ...voices.map((v, i) => ({
         uri:  v.voiceURI,
@@ -798,16 +868,11 @@ class ReadFlowWidget {
       item.className = `voice-item${active ? " active" : ""}`;
       item.innerHTML = `
         <div class="voice-dot" style="background:${entry.dot}"></div>
-        <div>
-          <div class="voice-name">${entry.name}</div>
-          <div class="voice-hint">${entry.hint}</div>
-        </div>
+        <div><div class="voice-name">${entry.name}</div><div class="voice-hint">${entry.hint}</div></div>
         ${active ? `<div class="voice-accent"></div>` : ""}`;
       item.addEventListener("click", () => {
-        this.activeVoiceURI = entry.uri;
-        voiceURI = entry.uri;
-        this.saveSettings();
-        this.closePopup();
+        this.activeVoiceURI = entry.uri; voiceURI = entry.uri;
+        this.saveSettings(); this.setPopup(null);
       });
       wrap.appendChild(item);
     });
@@ -823,9 +888,8 @@ class ReadFlowWidget {
     hdr.className = "settings-hdr";
     hdr.innerHTML = `<span class="panel-lbl">Appearance</span>`;
     const hdrClose = document.createElement("div");
-    hdrClose.className = "panel-close";
-    hdrClose.innerHTML = I.close;
-    hdrClose.addEventListener("click", () => this.closePopup());
+    hdrClose.className = "panel-close"; hdrClose.innerHTML = I.close;
+    hdrClose.addEventListener("click", () => this.setPopup(null));
     hdr.appendChild(hdrClose);
     wrap.appendChild(hdr);
 
@@ -836,10 +900,8 @@ class ReadFlowWidget {
       btn.className = `theme-btn${this.themeChoice === opt ? " active" : ""}`;
       btn.textContent = opt;
       btn.addEventListener("click", () => {
-        this.themeChoice = opt;
-        this.saveSettings();
-        this.applyThemeVars();
-        this.render();
+        this.themeChoice = opt; this.saveSettings();
+        this.applyThemeVars(); this.setPopup(null);
       });
       seg.appendChild(btn);
     });
@@ -848,22 +910,6 @@ class ReadFlowWidget {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────
-  private makeCloseBtn(): HTMLElement {
-    const btn = document.createElement("div");
-    btn.className = "close-btn";
-    btn.innerHTML = I.close;
-    btn.addEventListener("click", e => { e.stopPropagation(); this.handleClose(); });
-    return btn;
-  }
-
-  private makeIconBtn(content: string, title: string, active: boolean): HTMLButtonElement {
-    const btn = document.createElement("button");
-    btn.className = `icon-btn${active ? " active" : ""}`;
-    btn.title = title;
-    btn.innerHTML = content;
-    return btn;
-  }
-
   private makeDragDots(): HTMLElement {
     const wrap = document.createElement("div");
     wrap.className = "drag-dots";
@@ -880,54 +926,12 @@ class ReadFlowWidget {
     return wrap;
   }
 
-  private buildProgressRing(elapsed: number, total: number): SVGSVGElement {
-    const R = 20, SIZE = 48, CIRC = 2 * Math.PI * R;
-    const dash = Math.min(1, elapsed / Math.max(1, total)) * CIRC;
-    const ns = "http://www.w3.org/2000/svg";
-    const svg = document.createElementNS(ns, "svg") as SVGSVGElement;
-    svg.setAttribute("width",  String(SIZE));
-    svg.setAttribute("height", String(SIZE));
-    svg.style.cssText = "position:absolute;inset:-6px;z-index:0;pointer-events:none;transform:rotate(-90deg)";
-
-    const track = document.createElementNS(ns, "circle");
-    track.setAttribute("cx", String(SIZE / 2)); track.setAttribute("cy", String(SIZE / 2));
-    track.setAttribute("r", String(R)); track.setAttribute("fill", "none");
-    track.setAttribute("stroke", "rgba(255,255,255,0.1)"); track.setAttribute("stroke-width", "2.2");
-    svg.appendChild(track);
-
-    const arc = document.createElementNS(ns, "circle");
-    arc.setAttribute("cx", String(SIZE / 2)); arc.setAttribute("cy", String(SIZE / 2));
-    arc.setAttribute("r", String(R)); arc.setAttribute("fill", "none");
-    arc.setAttribute("stroke", ACCENT); arc.setAttribute("stroke-width", "2.2");
-    arc.setAttribute("stroke-linecap", "round");
-    arc.setAttribute("stroke-dasharray", `${dash} ${CIRC}`);
-    arc.style.transition = "stroke-dasharray 1s linear";
-    svg.appendChild(arc);
-
-    return svg;
-  }
-
-  private fmtTime(s: number): string {
-    const m = Math.floor(s / 60);
-    const sec = s % 60;
-    return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
-  }
-
-  // ── State transitions ─────────────────────────────────────────────
-  private transition(next: WidgetState): void {
-    if (next !== "playing") { this.stopTimer(); }
-    this.wState = next;
-    this.popup  = null;
-    this.render();
-  }
-
+  // ── Playback ──────────────────────────────────────────────────────
   private handlePlayClick(): void {
     if (this.wState === "playing") {
-      // Pause → back to expanded (per design spec)
-      pauseTTS();
+      stopTTS();
       this.stopTimer();
-      this.wState = "expanded";
-      this.render();
+      this.goExpanded();
     } else {
       this.startPlaying();
     }
@@ -935,53 +939,39 @@ class ReadFlowWidget {
 
   private startPlaying(text?: string): void {
     this.elapsed = 0;
-    this.wState  = "playing";
-    this.popup   = null;
-
-    // Estimate total time
     const raw = text ?? extractText();
     const wordCount = raw.split(/\s+/).length;
     this.totalSecs = Math.max(10, Math.round(wordCount / (this.speed * BASE_WPM) * 60));
 
-    this.render();
+    this.goPlaying();
     this.startTimer();
 
     ttsSpeed = this.speed;
     voiceURI = this.activeVoiceURI;
-    startTTS(text, undefined, () => {
+    startTTS(text, () => {
       this.stopTimer();
-      this.transition("expanded");
+      this.goExpanded();
     });
+  }
+
+  private applySpeed(s: number): void {
+    this.speed = s; ttsSpeed = s;
+    this.speedBadgeEl.textContent = `${s}×`;
+    const wordCount = sentences.join(" ").split(/\s+/).length;
+    if (wordCount > 0) this.totalSecs = Math.max(10, Math.round(wordCount / (s * BASE_WPM) * 60));
+    this.saveSettings();
+    this.setPopup("speed"); // rebuild panel to reflect new selection
   }
 
   private handleClose(): void {
     stopTTS();
     this.stopTimer();
     this.elapsed = 0;
-    this.wState  = "collapsed";
-    this.popup   = null;
-    this.render();
+    this.wState = "collapsed";
+    if (this.root) this.root.dataset.state = "collapsed";
+    this.playBtnEl.innerHTML = I.play;
+    this.setPopup(null);
     this.host.style.display = "none";
-  }
-
-  private togglePopup(id: PopupId): void {
-    this.popup = this.popup === id ? null : id;
-    this.render();
-  }
-
-  private closePopup(): void {
-    this.popup = null;
-    this.render();
-  }
-
-  private setSpeed(s: number): void {
-    this.speed = s;
-    ttsSpeed   = s;
-    this.saveSettings();
-    // Recalculate total
-    const wordCount = sentences.join(" ").split(/\s+/).length;
-    if (wordCount > 0) this.totalSecs = Math.max(10, Math.round(wordCount / (s * BASE_WPM) * 60));
-    this.render();
   }
 
   // ── Timer ─────────────────────────────────────────────────────────
@@ -998,36 +988,26 @@ class ReadFlowWidget {
   }
 
   private patchTimer(): void {
-    const timerEl = this.shadow.getElementById("rf-timer");
-    if (timerEl) timerEl.textContent = this.fmtTime(this.elapsed);
-
-    // Update progress ring arc
-    const svg = this.shadow.getElementById("rf-ring");
-    if (svg) {
-      const arc = svg.querySelectorAll("circle")[1];
-      if (arc) {
-        const R = 20, CIRC = 2 * Math.PI * R;
-        const dash = Math.min(1, this.elapsed / Math.max(1, this.totalSecs)) * CIRC;
-        arc.setAttribute("stroke-dasharray", `${dash} ${CIRC}`);
-      }
-    }
+    const m = Math.floor(this.elapsed / 60);
+    const s = this.elapsed % 60;
+    this.timerEl.textContent = `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+    const CIRC = 2 * Math.PI * 20;
+    const dash = Math.min(1, this.elapsed / Math.max(1, this.totalSecs)) * CIRC;
+    this.ringArc.setAttribute("stroke-dasharray", `${dash} ${CIRC}`);
   }
 
   // ── Drag ─────────────────────────────────────────────────────────
   private setupDrag(): void {
     this.shadow.addEventListener("mousedown", (e: Event) => {
       const me = e as MouseEvent;
-      const target = me.target as HTMLElement;
-      if (!target.closest(".drag-dots")) return;
+      if (!(me.target as HTMLElement).closest(".drag-dots")) return;
       e.preventDefault();
 
-      // Anchor by right+top so the widget always grows leftward
       if (!this.hasDragged) {
         const rect = this.host.getBoundingClientRect();
-        this.host.style.left   = "";
-        this.host.style.bottom = "";
-        this.host.style.right  = `${window.innerWidth - rect.right}px`;
-        this.host.style.top    = `${rect.top}px`;
+        this.host.style.left = ""; this.host.style.bottom = "";
+        this.host.style.right = `${window.innerWidth - rect.right}px`;
+        this.host.style.top   = `${rect.top}px`;
         this.hasDragged = true;
       }
 
@@ -1037,13 +1017,10 @@ class ReadFlowWidget {
       this.hostStartTop   = parseInt(this.host.style.top,   10);
 
       const onMove = (ev: MouseEvent) => {
-        // Moving right → smaller right value; moving left → larger right value
         const dx = ev.clientX - this.dragStartX;
         const dy = ev.clientY - this.dragStartY;
-        const r  = Math.max(0, Math.min(window.innerWidth  - 60, this.hostStartRight - dx));
-        const y  = Math.max(0, Math.min(window.innerHeight - 50, this.hostStartTop   + dy));
-        this.host.style.right = `${r}px`;
-        this.host.style.top   = `${y}px`;
+        this.host.style.right = `${Math.max(0, Math.min(window.innerWidth - 60, this.hostStartRight - dx))}px`;
+        this.host.style.top   = `${Math.max(0, Math.min(window.innerHeight - 50, this.hostStartTop + dy))}px`;
         this.scheduleSavePosition();
       };
       const onUp = () => {
@@ -1053,31 +1030,21 @@ class ReadFlowWidget {
       window.addEventListener("mousemove", onMove);
       window.addEventListener("mouseup",   onUp);
     });
-
-    // Close panel when clicking outside widget
-    document.addEventListener("mousedown", (e: MouseEvent) => {
-      if (this.popup && !this.host.contains(e.target as Node)) {
-        this.closePopup();
-      }
-    });
   }
 
   // ── Public API ────────────────────────────────────────────────────
   toggle(): void {
     if (this.host.style.display === "none") {
       this.host.style.display = "";
-    } else if (this.wState === "collapsed") {
-      this.host.style.display = "none";
     } else {
       this.host.style.display = "none";
     }
   }
 
-  show(): void { this.host.style.display = ""; }
-
   readSelection(): void {
+    if (this.host.style.display === "none") this.host.style.display = "";
     const sel = window.getSelection()?.toString().trim();
-    if (sel) { this.show(); this.startPlaying(sel); }
+    if (sel) this.startPlaying(sel);
   }
 }
 
@@ -1093,11 +1060,7 @@ function getWidget(): ReadFlowWidget {
 
 chrome.runtime.onMessage.addListener((msg) => {
   switch (msg.type) {
-    case "TOGGLE_PANEL":
-      getWidget().toggle();
-      break;
-    case "READ_SELECTION":
-      getWidget().readSelection();
-      break;
+    case "TOGGLE_PANEL":    getWidget().toggle(); break;
+    case "READ_SELECTION":  getWidget().readSelection(); break;
   }
 });
