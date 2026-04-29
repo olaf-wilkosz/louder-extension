@@ -14,10 +14,12 @@ type ThemeVars = {
   icon: string; iconHover: string; text: string; subtext: string;
   timer: string; closeBg: string; closeBorder: string; trackBg: string;
   chipBg: string; chipBgHover: string; voiceHover: string;
+  pillBg: string; pillBgHover: string;
 };
 
 const DARK: ThemeVars = {
   bg: "#252528",       panelBg: "#1e1e22",
+  pillBg: "rgba(37,37,40,0.5)", pillBgHover: "rgba(37,37,40,0.8)",
   border: "rgba(255,255,255,0.08)",  divider: "rgba(255,255,255,0.08)",
   icon: "rgba(255,255,255,0.48)",    iconHover: "rgba(255,255,255,0.9)",
   text: "rgba(255,255,255,0.85)",    subtext: "rgba(255,255,255,0.32)",
@@ -30,6 +32,7 @@ const DARK: ThemeVars = {
 
 const LIGHT: ThemeVars = {
   bg: "#dddde3",        panelBg: "#ebebf0",
+  pillBg: "rgba(221,221,227,0.5)", pillBgHover: "rgba(221,221,227,0.8)",
   border: "rgba(0,0,0,0.08)",        divider: "rgba(0,0,0,0.07)",
   icon: "rgba(0,0,0,0.42)",          iconHover: "rgba(0,0,0,0.85)",
   text: "rgba(0,0,0,0.85)",          subtext: "rgba(0,0,0,0.3)",
@@ -91,11 +94,13 @@ const SHADOW_CSS = `
 /* ── pill ── */
 .pill {
   display: flex; align-items: center; gap: 1px;
-  background: var(--bg); border-radius: 100px;
+  background: var(--pill-bg); border-radius: 100px;
   box-shadow: 0 0 0 1px var(--border), 0 8px 28px rgba(0,0,0,0.45);
   position: relative; width: fit-content;
   padding: 6px 4px 6px 6px;
+  transition: background 0.2s ease;
 }
+.pill:hover { background: var(--pill-bg-hover); }
 
 /* ── close button ── */
 .close-btn {
@@ -240,12 +245,13 @@ const SHADOW_CSS = `
 .drag-dots {
   display: flex; flex-direction: column; gap: 3px;
   padding: 8px 8px 8px 4px; cursor: grab;
-  opacity: .22; transition: opacity .15s;
+  opacity: .42; transition: opacity .15s;
 }
 .drag-dots:active { cursor: grabbing; }
-.drag-dots:hover  { opacity: .55; }
+.drag-dots:hover  { opacity: .78; }
 .drag-row { display: flex; gap: 3px; }
-.drag-dot { width: 3px; height: 3px; border-radius: 50%; background: var(--text); }
+.drag-dot { width: 3px; height: 3px; border-radius: 50%; background: #fff; }
+[data-state] .drag-dot { background: var(--drag-dot); }
 
 /* ── panels container ── */
 .panels-wrap {
@@ -508,6 +514,9 @@ class ReadFlowWidget {
     s.setProperty("--chip-bg",       t.chipBg);
     s.setProperty("--chip-bg-hover", t.chipBgHover);
     s.setProperty("--voice-hover",   t.voiceHover);
+    s.setProperty("--pill-bg",       t.pillBg);
+    s.setProperty("--pill-bg-hover", t.pillBgHover);
+    s.setProperty("--drag-dot",      this.resolvedTheme() === "light" ? "#444" : "#fff");
   }
 
   // ── Persistence ───────────────────────────────────────────────────
