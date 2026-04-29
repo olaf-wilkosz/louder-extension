@@ -79,10 +79,11 @@ chrome.storage.local.get(["selectedVoiceURI", "speed"], (result) => {
     speedVal.textContent = `${result.speed}×`;
   }
   if (result.selectedVoiceURI) {
+    const savedURI = String(result.selectedVoiceURI);
     // voices may not be loaded yet — set after populateVoices
     const trySet = () => {
       const opt = voiceSelect.querySelector<HTMLOptionElement>(
-        `option[value="${CSS.escape(result.selectedVoiceURI)}"]`
+        `option[value="${CSS.escape(savedURI)}"]`
       );
       if (opt) opt.selected = true;
     };
