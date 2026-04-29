@@ -1,0 +1,19 @@
+{
+  "name": "readflow",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "node build.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@mozilla/readability": "^0.6.0",
+    "@types/chrome": "^0.1.40",
+    "esbuild": "^0.28.0",
+    "typescript": "^6.0.3"
+  }
+}
