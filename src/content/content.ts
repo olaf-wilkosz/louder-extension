@@ -62,6 +62,14 @@ const SHADOW_CSS = `
   from { opacity:0; transform:scale(0.93) translateY(-4px); }
   to   { opacity:1; transform:scale(1) translateY(0); }
 }
+@keyframes widgetFadeOut {
+  from { opacity:1; transform:scale(1)    translateY(0px); }
+  to   { opacity:0; transform:scale(0.95) translateY(3px); }
+}
+:host([data-hiding]) .root {
+  animation: widgetFadeOut 0.28s cubic-bezier(0.4,0,1,1) forwards;
+  pointer-events: none;
+}
 
 :host {
   all: initial;
@@ -450,6 +458,7 @@ class ReadFlowWidget {
   constructor() {
     this.host = document.createElement("div");
     this.host.id = "readflow-host";
+    this.host.style.display = "none"; // revealed on first toggle()
     this.shadow = this.host.attachShadow({ mode: "open" });
     document.documentElement.appendChild(this.host);
 
@@ -971,7 +980,7 @@ class ReadFlowWidget {
     if (this.root) this.root.dataset.state = "collapsed";
     this.playBtnEl.innerHTML = I.play;
     this.setPopup(null);
-    this.host.style.display = "none";
+    this.hideWidget();
   }
 
   // ── Timer ─────────────────────────────────────────────────────────
@@ -985,6 +994,14 @@ class ReadFlowWidget {
 
   private stopTimer(): void {
     if (this.timerInterval !== null) { clearInterval(this.timerInterval); this.timerInterval = null; }
+  }
+
+  private hideWidget(): void {
+    this.host.setAttribute("data-hiding", "");
+    setTimeout(() => {
+      this.host.style.display = "none";
+      this.host.removeAttribute("data-hiding");
+    }, 280);
   }
 
   private patchTimer(): void {
@@ -1037,7 +1054,7 @@ class ReadFlowWidget {
     if (this.host.style.display === "none") {
       this.host.style.display = "";
     } else {
-      this.host.style.display = "none";
+      this.hideWidget();
     }
   }
 
