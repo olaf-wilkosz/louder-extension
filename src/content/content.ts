@@ -109,8 +109,14 @@ const SHADOW_CSS = `
 .close-btn:hover { background: #666; }
 
 /* ── collapsed hover-reveal (chevron + close) ── */
-.hover-only { opacity: 0; pointer-events: none; transition: opacity .15s; }
-.pill-collapsed:hover .hover-only { opacity: 1; pointer-events: auto; }
+.hover-only {
+  opacity: 0; pointer-events: none;
+  max-width: 0; overflow: hidden;
+  transition: opacity .15s, max-width .15s;
+}
+.pill-collapsed:hover .hover-only {
+  opacity: 1; pointer-events: auto; max-width: 34px;
+}
 
 /* ── icon buttons ── */
 .icon-btn {
