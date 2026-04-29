@@ -3,34 +3,29 @@ const fs = require("fs");
 const path = require("path");
 
 const outDir = "dist";
-if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+if (fs.existsSync(outDir)) fs.rmSync(outDir, { recursive: true });
+fs.mkdirSync(outDir, { recursive: true });
 
-// Copy static files
 function copy(src, dest) {
   fs.copyFileSync(src, path.join(outDir, dest));
 }
 
 copy("manifest.json", "manifest.json");
-copy("src/popup/popup.html", "popup.html");
 
-// Copy icons
 const iconsOut = path.join(outDir, "icons");
 if (!fs.existsSync(iconsOut)) fs.mkdirSync(iconsOut, { recursive: true });
 for (const size of [16, 48, 128]) {
   copy(`public/icons/icon${size}.png`, `icons/icon${size}.png`);
 }
 
-// Bundle all three entry points
 esbuild
   .build({
     entryPoints: [
-      "src/popup/popup.ts",
       "src/content/content.ts",
       "src/background/background.ts",
     ],
     bundle: true,
     outdir: outDir,
-    // Flatten output — no subdirs
     entryNames: "[name]",
     format: "iife",
     platform: "browser",
