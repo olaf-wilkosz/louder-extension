@@ -21,6 +21,13 @@ chrome.action.onClicked.addListener((tab) => {
 });
 
 async function injectAndSend(tabId: number, msg: object): Promise<void> {
+  // Chrome forbids scripting or messaging chrome://, edge://, about:, etc.
+  const tab = await chrome.tabs.get(tabId);
+  const url = tab.url ?? "";
+  if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("file://")) {
+    return;
+  }
+
   try {
     await chrome.tabs.sendMessage(tabId, msg);
   } catch {
