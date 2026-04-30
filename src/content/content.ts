@@ -17,7 +17,7 @@ type ThemeVars = {
 };
 
 const DARK: ThemeVars = {
-  bg: "#252528",       panelBg: "rgba(37,37,40,0.70)",
+  bg: "#252528",       panelBg: "rgba(37,37,40,0.50)",
   pillBg: "rgba(37,37,40,0.5)", pillBgHover: "rgba(37,37,40,0.8)",
   border: "rgba(255,255,255,0.08)",  divider: "rgba(255,255,255,0.08)",
   icon: "rgba(255,255,255,0.48)",    iconHover: "rgba(255,255,255,0.9)",
@@ -30,7 +30,7 @@ const DARK: ThemeVars = {
 };
 
 const LIGHT: ThemeVars = {
-  bg: "#dddde3",        panelBg: "rgba(221,221,227,0.70)",
+  bg: "#dddde3",        panelBg: "rgba(221,221,227,0.50)",
   pillBg: "rgba(221,221,227,0.5)", pillBgHover: "rgba(221,221,227,0.8)",
   border: "rgba(0,0,0,0.08)",        divider: "rgba(0,0,0,0.07)",
   icon: "rgba(0,0,0,0.42)",          iconHover: "rgba(0,0,0,0.85)",
@@ -276,8 +276,9 @@ const SHADOW_CSS = `
   transition: background 0.2s ease;
   animation: popIn .18s cubic-bezier(0.34,1.56,0.64,1) both;
 }
-/* panel:hover bumps to pill hover opacity — panel-bg (70%) → pill-bg-hover (80%) */
-.panel:hover { background: var(--pill-bg-hover); }
+/* Symmetric hover: root hovered (via pill, bridge, or panel) lights up panel too */
+.panel:hover,
+.root[data-panel-open]:hover .panel { background: var(--pill-bg-hover); }
 
 /* ── speed panel ── */
 .speed-panel { padding: 14px 16px 14px 14px; }
