@@ -17,7 +17,7 @@ type ThemeVars = {
 };
 
 const DARK: ThemeVars = {
-  bg: "#252528",       panelBg: "rgba(37,37,40,0.80)",
+  bg: "#252528",       panelBg: "rgba(37,37,40,0.70)",
   pillBg: "rgba(37,37,40,0.5)", pillBgHover: "rgba(37,37,40,0.8)",
   border: "rgba(255,255,255,0.08)",  divider: "rgba(255,255,255,0.08)",
   icon: "rgba(255,255,255,0.48)",    iconHover: "rgba(255,255,255,0.9)",
@@ -30,7 +30,7 @@ const DARK: ThemeVars = {
 };
 
 const LIGHT: ThemeVars = {
-  bg: "#dddde3",        panelBg: "rgba(221,221,227,0.80)",
+  bg: "#dddde3",        panelBg: "rgba(221,221,227,0.70)",
   pillBg: "rgba(221,221,227,0.5)", pillBgHover: "rgba(221,221,227,0.8)",
   border: "rgba(0,0,0,0.08)",        divider: "rgba(0,0,0,0.07)",
   icon: "rgba(0,0,0,0.42)",          iconHover: "rgba(0,0,0,0.85)",
@@ -215,7 +215,8 @@ const SHADOW_CSS = `
   cursor: pointer; flex-shrink: 0;
   transition: background .14s, color .14s;
 }
-.skip-btn:hover { background: var(--chip-bg-hover); color: var(--icon-hover); }
+.skip-btn:hover  { background: var(--chip-bg-hover); color: var(--icon-hover); }
+.skip-btn:active { background: rgba(59,158,255,0.13); color: ${ACCENT}; }
 
 /* ── play button ── */
 .play-btn {
@@ -267,6 +268,7 @@ const SHADOW_CSS = `
   transition: background 0.2s ease;
   animation: popIn .18s cubic-bezier(0.34,1.56,0.64,1) both;
 }
+/* panel:hover bumps to pill hover opacity — panel-bg (70%) → pill-bg-hover (80%) */
 .panel:hover { background: var(--pill-bg-hover); }
 
 /* ── speed panel ── */
@@ -307,6 +309,7 @@ const SHADOW_CSS = `
   transition: color .12s; text-align: left; font-family: inherit;
   color: var(--subtext); font-weight: 400;
 }
+.speed-label:not(.active):hover { color: var(--icon-hover); }
 .speed-label.active { font-weight: 600; color: var(--text); }
 
 /* ── voice panel ── */
@@ -342,6 +345,7 @@ const SHADOW_CSS = `
   font-size: 11.5px; font-family: inherit; transition: all .15s; text-transform: capitalize;
   background: transparent; color: var(--subtext); font-weight: 400;
 }
+.theme-btn:not(.active):hover { background: var(--chip-bg); color: var(--icon-hover); }
 .theme-btn.active { background: var(--chip-bg-hover); font-weight: 600; color: var(--text); }
 `;
 
