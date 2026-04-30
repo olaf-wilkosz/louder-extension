@@ -361,14 +361,14 @@ let voiceURI = "";
 let ttsSpeed = 1.0;
 let ttsLang  = "";
 let pageFingerprint = "";
-let sentenceStartTime = 0;    // Date.now() when current sentence began speaking
-let realElapsedBase  = 0;     // accumulated real seconds for all completed sentences
-let calculatedTotalSecs = 0;  // estimated total; recalibrated from actual sentence timings
-// Generation counter — incremented on every cancel/restart so stale onend
-// callbacks from a previous chain do not spawn a second concurrent chain.
+let sentenceStartTime = 0;
+let realElapsedBase  = 0;     // real seconds accumulated for completed sentences
+let calculatedTotalSecs = 0;
 let ttsGeneration = 0;
-// Stored completion callback so skip-restarted chains still trigger onTTSDone.
 let ttsOnDone: (() => void) | undefined;
+// Per-sentence actual durations, filled as each sentence finishes.
+// Persists across skips so we can use real timings when jumping back to heard sentences.
+let realSentenceDurations: number[] = [];
 
 // Cross-tab coordination — speechSynthesis is a browser-global singleton so
 // any tab starting playback cancels every other tab's audio silently.
@@ -573,6 +573,7 @@ function speakFrom(index: number, onDone?: () => void): void {
     removeHighlight();
     if (!isPaused && ttsGeneration === gen) {
       const realDur = (Date.now() - sentenceStartTime) / 1000;
+      realSentenceDurations[currentIndex] = realDur; // remember for future skip calculations
       realElapsedBase += realDur;
       // Recalibrate total from measured speaking rate so the ring stays honest
       const wordsRead = sentences.slice(0, currentIndex + 1).reduce((s, t) => s + t.split(/\s+/).length, 0);
@@ -598,7 +599,7 @@ function startTTS(text?: string, onDone?: () => void): void {
   const raw = text ?? extractText();
   pageFingerprint = text ? "" : raw.slice(0, 120);
   sentences = splitSentences(raw);
-  realElapsedBase = 0;
+  realElapsedBase = 0; realSentenceDurations = [];
   const wps = Math.max(0.1, ttsSpeed * BASE_WPM / 60);
   calculatedTotalSecs = sentences.reduce((s, sent) => s + sent.split(/\s+/).length / wps, 0);
   RF(`startTTS: ${sentences.length} sentences, calcTotal=${calculatedTotalSecs.toFixed(1)}s, speed=${ttsSpeed}, lang="${ttsLang}"`);
@@ -610,7 +611,7 @@ function stopTTS(): void {
   ttsOnDone = undefined;
   isPaused = false; speechSynthesis.cancel(); removeHighlight();
   sentences = []; currentIndex = 0; sentenceStartTime = 0;
-  realElapsedBase = 0; calculatedTotalSecs = 0;
+  realElapsedBase = 0; calculatedTotalSecs = 0; realSentenceDurations = [];
 }
 
 function pauseTTS(): void {
@@ -642,12 +643,25 @@ function resumeTTS(onDone?: () => void): void {
   speakFrom(currentIndex, onDone);
 }
 
-/** Skip forward (positive) or back (negative) by approximately `seconds` of speech.
- *  Walks real sentence word counts instead of assuming a fixed words/sentence average.
- *  Returns the signed duration actually skipped (for updating the elapsed timer). */
+/** Best estimate of a sentence's real duration: use measured time if available,
+ *  otherwise scale the word-count estimate by the measured real/estimated ratio. */
+function sentenceDuration(i: number, wps: number, ratio: number): number {
+  if (realSentenceDurations[i] !== undefined) return realSentenceDurations[i];
+  return (sentences[i]?.split(/\s+/).length ?? 0) / wps * ratio;
+}
+
+/** Skip forward/back by approximately `seconds` of real speech.
+ *  Uses measured durations for already-heard sentences and ratio-adjusted
+ *  estimates for unheard ones, so skips land meaningfully at high speeds. */
 function skipSeconds(seconds: number): number {
   if (!sentences.length) return 0;
   const wps = Math.max(0.1, ttsSpeed * BASE_WPM / 60);
+
+  // Measured real/estimated ratio from sentences already completed
+  const wordsHeard = sentences.slice(0, currentIndex).reduce((s, t) => s + t.split(/\s+/).length, 0);
+  const estHeard = wordsHeard / wps;
+  const ratio = realElapsedBase > 0 && estHeard > 0 ? realElapsedBase / estHeard : 1;
+
   const dir = seconds > 0 ? 1 : -1;
   const target = Math.abs(seconds);
   const fromIdx = currentIndex;
@@ -657,17 +671,22 @@ function skipSeconds(seconds: number): number {
   for (;;) {
     const next = i + dir;
     if (next < 0 || next >= sentences.length) break;
-    accumulated += sentences[next].split(/\s+/).length / wps;
+    accumulated += sentenceDuration(next, wps, ratio);
     i = next;
     if (accumulated >= target) break;
   }
 
   const newIdx = Math.max(0, Math.min(sentences.length - 1, i));
-  RF(`skip ${seconds > 0 ? "+" : ""}${seconds}s: idx ${fromIdx}→${newIdx}/${sentences.length}, est=${(accumulated * dir).toFixed(1)}s, wps=${wps.toFixed(1)}`);
+
+  // Reconstruct elapsed at the new position from known + estimated durations
+  let newElapsed = 0;
+  for (let j = 0; j < newIdx; j++) newElapsed += sentenceDuration(j, wps, ratio);
+
+  RF(`skip ${seconds > 0 ? "+" : ""}${seconds}s: idx ${fromIdx}→${newIdx}/${sentences.length}, accumulated=${(accumulated * dir).toFixed(1)}s, ratio=${ratio.toFixed(2)}, newElapsed=${newElapsed.toFixed(1)}s`);
   ttsGeneration++;
-  realElapsedBase = 0;
+  realElapsedBase = newElapsed;
   speechSynthesis.cancel();
-  speakFrom(newIdx, ttsOnDone); // must pass stored callback or completion never fires
+  speakFrom(newIdx, ttsOnDone);
   return accumulated * dir;
 }
 
