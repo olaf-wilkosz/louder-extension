@@ -565,9 +565,28 @@ function resumeTTS(onDone?: () => void): void {
   speakFrom(currentIndex, onDone);
 }
 
-function skipSentences(delta: number): void {
+/** Skip forward (positive) or back (negative) by approximately `seconds` of speech.
+ *  Walks real sentence word counts instead of assuming a fixed words/sentence average.
+ *  Returns the signed duration actually skipped (for updating the elapsed timer). */
+function skipSeconds(seconds: number): number {
+  if (!sentences.length) return 0;
+  const wps = Math.max(0.1, ttsSpeed * BASE_WPM / 60);
+  const dir = seconds > 0 ? 1 : -1;
+  const target = Math.abs(seconds);
+
+  let accumulated = 0;
+  let i = currentIndex;
+  for (;;) {
+    const next = i + dir;
+    if (next < 0 || next >= sentences.length) break;
+    accumulated += sentences[next].split(/\s+/).length / wps;
+    i = next;
+    if (accumulated >= target) break;
+  }
+
   speechSynthesis.cancel();
-  speakFrom(Math.max(0, Math.min(sentences.length - 1, currentIndex + delta)));
+  speakFrom(Math.max(0, Math.min(sentences.length - 1, i)));
+  return accumulated * dir;
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -829,8 +848,9 @@ class ReadFlowWidget {
     skipBack.className = "skip-btn";
     skipBack.innerHTML = `<span style="font-size:10px">◂</span>10`;
     skipBack.addEventListener("click", () => {
-      this.elapsed = Math.max(0, this.elapsed - 10);
-      skipSentences(-Math.round(10 * this.speed * BASE_WPM / 60 / 15));
+      const actual = skipSeconds(-10);
+      this.elapsed = Math.max(0, this.elapsed + actual); // actual is negative
+      this.patchTimer();
     });
     skipBtns.appendChild(skipBack);
 
@@ -838,8 +858,9 @@ class ReadFlowWidget {
     skipFwd.className = "skip-btn";
     skipFwd.innerHTML = `10<span style="font-size:10px">▸</span>`;
     skipFwd.addEventListener("click", () => {
-      this.elapsed = Math.min(this.totalSecs, this.elapsed + 10);
-      skipSentences(Math.round(10 * this.speed * BASE_WPM / 60 / 15));
+      const actual = skipSeconds(10);
+      this.elapsed = Math.min(this.totalSecs, this.elapsed + actual);
+      this.patchTimer();
     });
     skipBtns.appendChild(skipFwd);
 
@@ -1303,16 +1324,34 @@ class ReadFlowWidget {
     if (this.wState === "playing") this.goExpanded();
   }
 
+  /** Estimate total reading time from the current page so the progress ring
+   *  has a meaningful total before the user presses play. Runs async so it
+   *  doesn't block the widget appearing. Skipped if TTS is already active. */
+  private preCalculateTotalTime(): void {
+    if (this.ttsActive || isPaused) return; // don't override an active session
+    setTimeout(() => {
+      try {
+        const raw = extractText();
+        const words = raw.split(/\s+/).length;
+        this.totalSecs = Math.max(10, Math.round(words / (this.speed * BASE_WPM) * 60));
+      } catch { /* non-critical */ }
+    }, 0);
+  }
+
   toggle(): void {
     if (this.host.style.display === "none") {
       this.host.style.display = "";
+      this.preCalculateTotalTime();
     } else {
       this.hideWidget();
     }
   }
 
   readSelection(): void {
-    if (this.host.style.display === "none") this.host.style.display = "";
+    if (this.host.style.display === "none") {
+      this.host.style.display = "";
+      this.preCalculateTotalTime();
+    }
     const sel = window.getSelection()?.toString().trim();
     if (sel) this.startPlaying(sel);
   }
