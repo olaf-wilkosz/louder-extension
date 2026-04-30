@@ -361,6 +361,8 @@ let voiceURI = "";
 let ttsSpeed = 1.0;
 let ttsLang  = "";
 let pageFingerprint = "";
+let sentenceStartTime = 0;    // Date.now() when current sentence began speaking
+let calculatedTotalSecs = 0;  // sum of sentence durations at current ttsSpeed
 
 // Cross-tab coordination — speechSynthesis is a browser-global singleton so
 // any tab starting playback cancels every other tab's audio silently.
@@ -388,6 +390,19 @@ function detectTextLang(text: string): string {
   // Fall back to page declared lang, then browser lang
   const declared = document.documentElement.lang;
   return declared ? declared.split("-")[0].toLowerCase() : navigator.language.split("-")[0].toLowerCase();
+}
+
+/** Returns elapsed seconds based on sentences read so far + time into the current sentence.
+ *  Decouples the displayed time from wall-clock so skip and speed changes stay accurate. */
+function calcElapsed(): number {
+  if (!sentences.length) return 0;
+  const wps = Math.max(0.1, ttsSpeed * BASE_WPM / 60);
+  let base = 0;
+  const upTo = Math.min(currentIndex, sentences.length);
+  for (let i = 0; i < upTo; i++) base += sentences[i].split(/\s+/).length / wps;
+  if (isPaused || currentIndex >= sentences.length) return base;
+  const sentDur = (sentences[currentIndex]?.split(/\s+/).length ?? 0) / wps;
+  return base + Math.min((Date.now() - sentenceStartTime) / 1000, sentDur);
 }
 
 /** Extract email body text from Gmail's stable DOM containers.
@@ -509,6 +524,7 @@ function getVoice(): SpeechSynthesisVoice | null {
 function speakFrom(index: number, onDone?: () => void): void {
   if (index >= sentences.length) { removeHighlight(); onDone?.(); return; }
   currentIndex = index;
+  sentenceStartTime = Date.now();
   const sentence = sentences[index];
   highlightSentence(sentence);
 
@@ -536,13 +552,15 @@ function startTTS(text?: string, onDone?: () => void): void {
   const raw = text ?? extractText();
   pageFingerprint = text ? "" : raw.slice(0, 120);
   sentences = splitSentences(raw);
-  RF(`startTTS: ${sentences.length} sentences, speed=${ttsSpeed}, lang="${ttsLang}"`);
+  const wps = Math.max(0.1, ttsSpeed * BASE_WPM / 60);
+  calculatedTotalSecs = sentences.reduce((s, sent) => s + sent.split(/\s+/).length / wps, 0);
+  RF(`startTTS: ${sentences.length} sentences, calcTotal=${calculatedTotalSecs.toFixed(1)}s, speed=${ttsSpeed}, lang="${ttsLang}"`);
   speakFrom(0, onDone);
 }
 
 function stopTTS(): void {
   isPaused = false; speechSynthesis.cancel(); removeHighlight();
-  sentences = []; currentIndex = 0;
+  sentences = []; currentIndex = 0; sentenceStartTime = 0; calculatedTotalSecs = 0;
 }
 
 function pauseTTS(): void {
@@ -618,8 +636,7 @@ class ReadFlowWidget {
   private themeChoice: ThemeChoice = "dark";
   private speed = 1;
   private activeVoiceURI = "";
-  private elapsed = 0;
-  private totalSecs = 300;
+  private totalSecs = 300; // fallback estimate used before sentences are loaded
   private timerInterval: ReturnType<typeof setInterval> | null = null;
 
   // Stable DOM refs (set in buildDOM, never reassigned)
@@ -859,9 +876,8 @@ class ReadFlowWidget {
     skipBack.className = "skip-btn";
     skipBack.innerHTML = `<span style="font-size:10px">◂</span>10`;
     skipBack.addEventListener("click", () => {
-      const actual = skipSeconds(-10);
-      this.elapsed = Math.max(0, Math.round(this.elapsed + actual));
-      RF(`skipBack: elapsed=${this.elapsed}s / totalSecs=${this.totalSecs}s`);
+      skipSeconds(-10);
+      RF(`skipBack: idx=${currentIndex}, elapsed=${Math.floor(calcElapsed())}s / total=${Math.ceil(calculatedTotalSecs || this.totalSecs)}s`);
       this.patchTimer();
     });
     skipBtns.appendChild(skipBack);
@@ -870,9 +886,8 @@ class ReadFlowWidget {
     skipFwd.className = "skip-btn";
     skipFwd.innerHTML = `10<span style="font-size:10px">▸</span>`;
     skipFwd.addEventListener("click", () => {
-      const actual = skipSeconds(10);
-      this.elapsed = Math.min(this.totalSecs, Math.round(this.elapsed + actual));
-      RF(`skipFwd: elapsed=${this.elapsed}s / totalSecs=${this.totalSecs}s`);
+      skipSeconds(10);
+      RF(`skipFwd: idx=${currentIndex}, elapsed=${Math.floor(calcElapsed())}s / total=${Math.ceil(calculatedTotalSecs || this.totalSecs)}s`);
       this.patchTimer();
     });
     skipBtns.appendChild(skipFwd);
@@ -1219,11 +1234,10 @@ class ReadFlowWidget {
   }
 
   private startPlaying(text?: string): void {
-    this.elapsed = 0;
     const raw = text ?? extractText();
     const wordCount = raw.split(/\s+/).length;
     this.totalSecs = Math.max(10, Math.round(wordCount / (this.speed * BASE_WPM) * 60));
-    RF(`startPlaying: ${wordCount} words, totalSecs=${this.totalSecs}s, speed=${this.speed}`);
+    RF(`startPlaying: ${wordCount} words, est totalSecs=${this.totalSecs}s, speed=${this.speed}`);
 
     this.ttsActive = true;
     this.playBtnEl.innerHTML = I.pause;
@@ -1241,17 +1255,21 @@ class ReadFlowWidget {
   private applySpeed(s: number): void {
     this.speed = s; ttsSpeed = s;
     this.speedBadgeEl.textContent = `${s}×`;
-    const wordCount = sentences.join(" ").split(/\s+/).length;
-    if (wordCount > 0) this.totalSecs = Math.max(10, Math.round(wordCount / (s * BASE_WPM) * 60));
+    if (sentences.length > 0) {
+      // Recalculate with new speed so timer/ring stay accurate mid-session
+      const wps = Math.max(0.1, s * BASE_WPM / 60);
+      calculatedTotalSecs = sentences.reduce((sum, sent) => sum + sent.split(/\s+/).length / wps, 0);
+    } else {
+      this.totalSecs = Math.max(10, Math.round(this.totalSecs * (this.speed / s))); // scale pre-calc estimate
+    }
     this.saveSettings();
-    this.setPopup("speed"); // rebuild panel to reflect new selection
+    this.setPopup("speed");
   }
 
   private handleClose(): void {
     stopTTS();
     this.ttsActive = false;
     this.stopTimer();
-    this.elapsed = 0;
     this.playBtnEl.innerHTML = I.play;
     this.wState = "collapsed";
     if (this.root) this.root.dataset.state = "collapsed";
@@ -1262,10 +1280,7 @@ class ReadFlowWidget {
   // ── Timer ─────────────────────────────────────────────────────────
   private startTimer(): void {
     this.stopTimer();
-    this.timerInterval = setInterval(() => {
-      this.elapsed = Math.min(this.elapsed + 1, this.totalSecs);
-      this.patchTimer();
-    }, 1000);
+    this.timerInterval = setInterval(() => this.patchTimer(), 1000);
   }
 
   private stopTimer(): void {
@@ -1281,14 +1296,14 @@ class ReadFlowWidget {
   }
 
   private patchTimer(): void {
-    const e = Math.floor(this.elapsed); // guard against float elapsed from skip
+    const e     = Math.floor(calcElapsed());
+    const total = calculatedTotalSecs > 0 ? Math.ceil(calculatedTotalSecs) : this.totalSecs;
     const m = Math.floor(e / 60);
     const s = e % 60;
     this.timerEl.textContent = `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
-    const CIRC = 2 * Math.PI * 20;
-    const ratio = Math.min(1, e / Math.max(1, this.totalSecs));
-    const dash = ratio * CIRC;
-    this.ringArc.setAttribute("stroke-dasharray", `${dash} ${CIRC}`);
+    const CIRC  = 2 * Math.PI * 20;
+    const ratio = Math.min(1, e / Math.max(1, total));
+    this.ringArc.setAttribute("stroke-dasharray", `${ratio * CIRC} ${CIRC}`);
   }
 
   // ── Drag ─────────────────────────────────────────────────────────
