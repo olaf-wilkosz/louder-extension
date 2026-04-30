@@ -17,7 +17,7 @@ type ThemeVars = {
 };
 
 const DARK: ThemeVars = {
-  bg: "#252528",       panelBg: "#1e1e22",
+  bg: "#252528",       panelBg: "rgba(28,28,32,0.88)",
   pillBg: "rgba(37,37,40,0.5)", pillBgHover: "rgba(37,37,40,0.8)",
   border: "rgba(255,255,255,0.08)",  divider: "rgba(255,255,255,0.08)",
   icon: "rgba(255,255,255,0.48)",    iconHover: "rgba(255,255,255,0.9)",
@@ -30,7 +30,7 @@ const DARK: ThemeVars = {
 };
 
 const LIGHT: ThemeVars = {
-  bg: "#dddde3",        panelBg: "#ebebf0",
+  bg: "#dddde3",        panelBg: "rgba(230,230,236,0.90)",
   pillBg: "rgba(221,221,227,0.5)", pillBgHover: "rgba(221,221,227,0.8)",
   border: "rgba(0,0,0,0.08)",        divider: "rgba(0,0,0,0.07)",
   icon: "rgba(0,0,0,0.42)",          iconHover: "rgba(0,0,0,0.85)",
@@ -54,9 +54,9 @@ const I = {
   // Single right-pointing chevron; CSS rotates it 180° in collapsed state
   chev:    `<svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2l4 4-4 4"/></svg>`,
   close:   `<svg width="7" height="7" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1 1l6 6M7 1L1 7"/></svg>`,
-  // Sentence navigation: vertical bar + filled triangle
-  stepBack: `<svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect x="1" y="1.5" width="2" height="9" rx="1"/><path d="M10.5 2 L3.5 6 10.5 10z"/></svg>`,
-  stepFwd:  `<svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect x="9" y="1.5" width="2" height="9" rx="1"/><path d="M1.5 2 L8.5 6 1.5 10z"/></svg>`,
+  // Sentence navigation: hooked arrows (↩/↪ style — "jump back/forward one sentence")
+  stepBack: `<svg width="13" height="11" viewBox="0 0 14 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4H5Q3 4 3 6v2"/><polyline points="1,5.5 3,7.5 5,5.5"/></svg>`,
+  stepFwd:  `<svg width="13" height="11" viewBox="0 0 14 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h7q2 0 2 2v2"/><polyline points="9,5.5 11,7.5 13,5.5"/></svg>`,
 };
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -254,17 +254,16 @@ const SHADOW_CSS = `
 .drag-dot { width: 3px; height: 3px; border-radius: 50%; background: #fff; }
 [data-state] .drag-dot { background: var(--drag-dot); }
 
-/* ── panels container ── */
+/* ── panels container — horizontal position set by JS per trigger button ── */
 .panels-wrap {
   position: absolute; top: calc(100% + 8px); z-index: 50;
 }
-.panels-wrap.left  { left: 0; }
-.panels-wrap.right { right: 0; }
 
 /* ── panel base ── */
 .panel {
   background: var(--panel-bg); border: 1px solid var(--border); border-radius: 16px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   animation: popIn .18s cubic-bezier(0.34,1.56,0.64,1) both;
 }
 
@@ -675,6 +674,7 @@ class ReadFlowWidget {
   private hostStartRight = 0; private hostStartTop = 0;
   private hasDragged = false;
   private saveDebounce: ReturnType<typeof setTimeout> | null = null;
+  private lastTrigger: HTMLElement | undefined; // remembers which button opened the current panel
 
   constructor() {
     // Remove any orphaned host left by a previous extension load (reload / re-install)
@@ -840,7 +840,7 @@ class ReadFlowWidget {
     this.settingsBtnEl.className = "icon-btn";
     this.settingsBtnEl.title = "Settings";
     this.settingsBtnEl.innerHTML = I.sliders;
-    this.settingsBtnEl.addEventListener("click", () => this.togglePopup("settings"));
+    this.settingsBtnEl.addEventListener("click", () => this.togglePopup("settings", this.settingsBtnEl));
     expandable.appendChild(this.settingsBtnEl);
 
     // Read selection
@@ -862,7 +862,7 @@ class ReadFlowWidget {
     this.speedBadgeEl.className = "speed-badge";
     this.speedBadgeEl.textContent = `${this.speed}×`;
     this.speedBtnEl.appendChild(this.speedBadgeEl);
-    this.speedBtnEl.addEventListener("click", () => this.togglePopup("speed"));
+    this.speedBtnEl.addEventListener("click", () => this.togglePopup("speed", this.speedBtnEl));
     expandable.appendChild(this.speedBtnEl);
 
     // Voice
@@ -870,7 +870,7 @@ class ReadFlowWidget {
     this.voiceBtnEl.className = "icon-btn";
     this.voiceBtnEl.title = "Voice";
     this.voiceBtnEl.innerHTML = I.person;
-    this.voiceBtnEl.addEventListener("click", () => this.togglePopup("voice"));
+    this.voiceBtnEl.addEventListener("click", () => this.togglePopup("voice", this.voiceBtnEl));
     expandable.appendChild(this.voiceBtnEl);
 
     // Divider
@@ -970,7 +970,7 @@ class ReadFlowWidget {
 
     // Close panel on outside click
     document.addEventListener("mousedown", (e: MouseEvent) => {
-      if (this.popup && !this.host.contains(e.target as Node)) this.togglePopup(null as unknown as PopupId);
+      if (this.popup && !this.host.contains(e.target as Node)) this.setPopup(null);
     });
   }
 
@@ -993,7 +993,8 @@ class ReadFlowWidget {
   }
 
   // ── Popup ─────────────────────────────────────────────────────────
-  private setPopup(id: PopupId | null): void {
+  private setPopup(id: PopupId | null, trigger?: HTMLElement): void {
+    if (trigger) this.lastTrigger = trigger;
     this.popup = id;
     this.settingsBtnEl.classList.toggle("active", id === "settings");
     this.speedBtnEl.classList.toggle("active",    id === "speed");
@@ -1002,15 +1003,28 @@ class ReadFlowWidget {
     this.panelsCont.innerHTML = "";
     if (!id) return;
 
-    const isRight = id === "speed" || id === "voice";
     const wrap = document.createElement("div");
-    wrap.className = `panels-wrap ${isRight ? "right" : "left"}`;
+    wrap.className = "panels-wrap";
     wrap.appendChild(this.buildPanel(id));
     this.panelsCont.appendChild(wrap);
+
+    // Position panel horizontally centered below the trigger button
+    const triggerEl = trigger ?? this.lastTrigger;
+    if (triggerEl) {
+      requestAnimationFrame(() => {
+        const trigRect  = triggerEl.getBoundingClientRect();
+        const rootRect  = this.root.getBoundingClientRect();
+        const center    = trigRect.left + trigRect.width / 2 - rootRect.left;
+        const wrapW     = wrap.offsetWidth;
+        const maxLeft   = rootRect.width - wrapW;
+        wrap.style.left = `${Math.max(0, Math.min(center - wrapW / 2, maxLeft))}px`;
+      });
+    }
   }
 
-  private togglePopup(id: PopupId): void {
-    this.setPopup(this.popup === id ? null : id);
+  private togglePopup(id: PopupId, trigger: HTMLElement): void {
+    if (this.popup === id) this.setPopup(null);
+    else this.setPopup(id, trigger);
   }
 
   // ── Panel builders ────────────────────────────────────────────────
@@ -1289,7 +1303,7 @@ class ReadFlowWidget {
       this.totalSecs = Math.max(10, Math.round(this.totalSecs * (this.speed / s))); // scale pre-calc estimate
     }
     this.saveSettings();
-    this.setPopup("speed");
+    this.setPopup("speed"); // lastTrigger remembered — panel repositions correctly
   }
 
   private handleClose(): void {
