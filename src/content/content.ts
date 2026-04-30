@@ -103,8 +103,8 @@ const SHADOW_CSS = `
   transition: background 0.2s ease;
 }
 .pill:hover { background: var(--pill-bg-hover); }
-/* keep pill in hovered state while any panel is open */
-[data-panel-open] .pill { background: var(--pill-bg-hover); }
+/* pill stays hovered while mouse is anywhere over root (pill or open panel) */
+.root[data-panel-open]:hover .pill { background: var(--pill-bg-hover); }
 
 /* ── close button ── */
 .close-btn {
@@ -117,10 +117,11 @@ const SHADOW_CSS = `
   transition: opacity .15s, background .15s, transform .15s;
 }
 .close-btn:hover { background: #666; transform: scale(1.15); }
-/* close button: reveal on hover in all states */
+/* close button: reveal on hover in all states, or always when panel is open */
 [data-state="collapsed"] .pill:hover .close-btn,
 [data-state="expanded"]  .pill:hover .close-btn,
-[data-state="playing"]   .pill:hover .close-btn { opacity: 1; pointer-events: auto; }
+[data-state="playing"]   .pill:hover .close-btn,
+[data-panel-open] .close-btn { opacity: 1; pointer-events: auto; }
 
 /* ── chevron button ── */
 .chev-btn {
@@ -134,10 +135,11 @@ const SHADOW_CSS = `
 }
 .chev-btn:hover { background: var(--chip-bg-hover); color: var(--icon-hover); }
 
-/* chevron: reveal on hover in all states */
+/* chevron: reveal on hover in all states, or always when panel is open */
 [data-state="collapsed"] .pill:hover .chev-btn,
 [data-state="expanded"]  .pill:hover .chev-btn,
-[data-state="playing"]   .pill:hover .chev-btn {
+[data-state="playing"]   .pill:hover .chev-btn,
+[data-panel-open] .chev-btn {
   max-width: 28px; opacity: 1; pointer-events: auto;
 }
 
@@ -261,6 +263,10 @@ const SHADOW_CSS = `
 .panels-wrap {
   position: absolute; top: calc(100% + 8px); z-index: 50;
 }
+/* Transparent bridge fills the 8px gap so :hover doesn't break crossing from pill to panel */
+.panels-wrap::before {
+  content: ''; position: absolute; top: -8px; left: 0; right: 0; height: 8px;
+}
 
 /* ── panel base ── */
 .panel {
@@ -316,7 +322,11 @@ const SHADOW_CSS = `
 
 /* ── voice panel ── */
 .voice-panel { padding: 10px 8px; min-width: 220px; }
-.voice-list  { max-height: 260px; overflow-y: auto; }
+.voice-list  { max-height: 260px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--subtext) transparent; }
+.voice-list::-webkit-scrollbar { width: 4px; }
+.voice-list::-webkit-scrollbar-track { background: transparent; }
+.voice-list::-webkit-scrollbar-thumb { background: var(--subtext); border-radius: 2px; }
+.voice-list::-webkit-scrollbar-thumb:hover { background: var(--icon); }
 .panel-hdr { display: flex; align-items: center; justify-content: space-between; padding: 2px 8px 8px; }
 .panel-lbl { font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--subtext); }
 .panel-close { cursor: pointer; color: var(--subtext); display: flex; }
