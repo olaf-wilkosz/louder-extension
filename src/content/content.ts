@@ -17,7 +17,7 @@ type ThemeVars = {
 };
 
 const DARK: ThemeVars = {
-  bg: "#252528",       panelBg: "rgba(37,37,40,0.92)",
+  bg: "#252528",       panelBg: "rgba(37,37,40,0.80)",
   pillBg: "rgba(37,37,40,0.5)", pillBgHover: "rgba(37,37,40,0.8)",
   border: "rgba(255,255,255,0.08)",  divider: "rgba(255,255,255,0.08)",
   icon: "rgba(255,255,255,0.48)",    iconHover: "rgba(255,255,255,0.9)",
@@ -30,7 +30,7 @@ const DARK: ThemeVars = {
 };
 
 const LIGHT: ThemeVars = {
-  bg: "#dddde3",        panelBg: "rgba(221,221,227,0.92)",
+  bg: "#dddde3",        panelBg: "rgba(221,221,227,0.80)",
   pillBg: "rgba(221,221,227,0.5)", pillBgHover: "rgba(221,221,227,0.8)",
   border: "rgba(0,0,0,0.08)",        divider: "rgba(0,0,0,0.07)",
   icon: "rgba(0,0,0,0.42)",          iconHover: "rgba(0,0,0,0.85)",
@@ -54,9 +54,9 @@ const I = {
   // Single right-pointing chevron; CSS rotates it 180° in collapsed state
   chev:    `<svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2l4 4-4 4"/></svg>`,
   close:   `<svg width="7" height="7" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1 1l6 6M7 1L1 7"/></svg>`,
-  // Sentence navigation: undo/redo-style arcs — clear at small sizes, conveys "step back/forward"
-  stepBack: `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 5.5h7a4 4 0 0 1 0 8"/><polyline points="1.5,3 3.5,5.5 1.5,8"/></svg>`,
-  stepFwd:  `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 5.5h-7a4 4 0 0 0 0 8"/><polyline points="14.5,3 12.5,5.5 14.5,8"/></svg>`,
+  // Sentence navigation: undo/redo-style arcs — arrowhead at the arc's start, pointing in travel direction
+  stepBack: `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 5.5h7a4 4 0 0 1 0 8"/><polyline points="5.5,3 3.5,5.5 5.5,8"/></svg>`,
+  stepFwd:  `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 5.5h-7a4 4 0 0 0 0 8"/><polyline points="10.5,3 12.5,5.5 10.5,8"/></svg>`,
 };
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -264,8 +264,10 @@ const SHADOW_CSS = `
   background: var(--panel-bg); border: 1px solid var(--border); border-radius: 16px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.5);
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  transition: background 0.2s ease;
   animation: popIn .18s cubic-bezier(0.34,1.56,0.64,1) both;
 }
+.panel:hover { background: var(--pill-bg-hover); }
 
 /* ── speed panel ── */
 .speed-panel { padding: 14px 16px 14px 14px; }
