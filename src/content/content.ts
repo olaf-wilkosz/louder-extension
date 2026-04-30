@@ -406,19 +406,34 @@ function scoreExtraction(text: string, rawLength: number): number {
   return 1;
 }
 
-/** Extract from SPA conversation UIs (ChatGPT, Claude.ai, etc.) that wrap
- *  each message turn in an <article>. A single <article> is likely a blog
- *  post — leave those for Readability. */
+/** Extract from SPA conversation UIs that wrap each message turn in a
+ *  repeating semantic element. Tries <article> first (Claude.ai, newer
+ *  ChatGPT builds), then content-dense <section> elements (ChatGPT thread
+ *  structure). Requires 2+ qualifying elements so a single article/section
+ *  blog post still goes to Readability. */
 function extractConversationText(): string | null {
+  // <article> per turn — common in newer AI chat UIs
   const articles = document.querySelectorAll<HTMLElement>("article");
-  if (articles.length < 2) return null;
+  if (articles.length >= 2) {
+    const parts = Array.from(articles)
+      .map(el => el.innerText.trim())
+      .filter(t => t.length > 20);
+    const joined = parts.join("\n\n");
+    if (joined.length > 100) return joined;
+  }
 
-  const parts = Array.from(articles)
-    .map(el => el.innerText.trim())
-    .filter(t => t.length > 10);
+  // <section> per turn — ChatGPT thread and similar.
+  // Filter to sections with real content (>80 chars) so nav/footer sections
+  // don't count toward the 2+ threshold.
+  const sections = Array.from(document.querySelectorAll<HTMLElement>("section"))
+    .filter(el => el.innerText.trim().length > 80);
+  if (sections.length >= 2) {
+    const parts = sections.map(el => el.innerText.trim());
+    const joined = parts.join("\n\n");
+    if (joined.length > 100) return joined;
+  }
 
-  const joined = parts.join("\n\n");
-  return joined.length > 100 ? joined : null;
+  return null;
 }
 
 function extractText(): string {
