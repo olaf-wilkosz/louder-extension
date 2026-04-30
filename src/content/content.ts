@@ -342,6 +342,11 @@ const SHADOW_CSS = `
 `;
 
 /* ═══════════════════════════════════════════════════════════════════
+   DEBUG  —  filter browser console by "[RF]" to see only ReadFlow logs
+═══════════════════════════════════════════════════════════════════ */
+const RF = (...a: unknown[]) => console.log("[RF]", ...a);
+
+/* ═══════════════════════════════════════════════════════════════════
    TTS ENGINE
 ═══════════════════════════════════════════════════════════════════ */
 const highlightStyle = document.createElement("style");
@@ -527,10 +532,11 @@ function speakFrom(index: number, onDone?: () => void): void {
 
 function startTTS(text?: string, onDone?: () => void): void {
   speechSynthesis.cancel(); removeHighlight(); isPaused = false;
-  chrome.storage.local.set({ [PLAYING_OWNER_KEY]: INSTANCE_ID }); // claim TTS ownership
+  chrome.storage.local.set({ [PLAYING_OWNER_KEY]: INSTANCE_ID });
   const raw = text ?? extractText();
   pageFingerprint = text ? "" : raw.slice(0, 120);
   sentences = splitSentences(raw);
+  RF(`startTTS: ${sentences.length} sentences, speed=${ttsSpeed}, lang="${ttsLang}"`);
   speakFrom(0, onDone);
 }
 
@@ -548,10 +554,11 @@ function pauseTTS(): void {
 }
 
 function resumeTTS(onDone?: () => void): void {
-  chrome.storage.local.set({ [PLAYING_OWNER_KEY]: INSTANCE_ID }); // claim TTS ownership
+  chrome.storage.local.set({ [PLAYING_OWNER_KEY]: INSTANCE_ID });
   if (pageFingerprint) {
     const current = extractText();
     if (current.slice(0, 120) !== pageFingerprint) {
+      RF(`resumeTTS: content changed — restarting fresh`);
       pageFingerprint = current.slice(0, 120);
       ttsLang = detectTextLang(current);
       sentences = splitSentences(current);
@@ -561,6 +568,7 @@ function resumeTTS(onDone?: () => void): void {
       return;
     }
   }
+  RF(`resumeTTS: idx=${currentIndex}/${sentences.length}`);
   isPaused = false;
   speakFrom(currentIndex, onDone);
 }
@@ -573,6 +581,7 @@ function skipSeconds(seconds: number): number {
   const wps = Math.max(0.1, ttsSpeed * BASE_WPM / 60);
   const dir = seconds > 0 ? 1 : -1;
   const target = Math.abs(seconds);
+  const fromIdx = currentIndex;
 
   let accumulated = 0;
   let i = currentIndex;
@@ -584,8 +593,10 @@ function skipSeconds(seconds: number): number {
     if (accumulated >= target) break;
   }
 
+  const newIdx = Math.max(0, Math.min(sentences.length - 1, i));
+  RF(`skip ${seconds > 0 ? "+" : ""}${seconds}s: idx ${fromIdx}→${newIdx}/${sentences.length}, actual=${(accumulated * dir).toFixed(1)}s, wps=${wps.toFixed(1)}`);
   speechSynthesis.cancel();
-  speakFrom(Math.max(0, Math.min(sentences.length - 1, i)));
+  speakFrom(newIdx);
   return accumulated * dir;
 }
 
@@ -849,7 +860,8 @@ class ReadFlowWidget {
     skipBack.innerHTML = `<span style="font-size:10px">◂</span>10`;
     skipBack.addEventListener("click", () => {
       const actual = skipSeconds(-10);
-      this.elapsed = Math.max(0, this.elapsed + actual); // actual is negative
+      this.elapsed = Math.max(0, Math.round(this.elapsed + actual));
+      RF(`skipBack: elapsed=${this.elapsed}s / totalSecs=${this.totalSecs}s`);
       this.patchTimer();
     });
     skipBtns.appendChild(skipBack);
@@ -859,7 +871,8 @@ class ReadFlowWidget {
     skipFwd.innerHTML = `10<span style="font-size:10px">▸</span>`;
     skipFwd.addEventListener("click", () => {
       const actual = skipSeconds(10);
-      this.elapsed = Math.min(this.totalSecs, this.elapsed + actual);
+      this.elapsed = Math.min(this.totalSecs, Math.round(this.elapsed + actual));
+      RF(`skipFwd: elapsed=${this.elapsed}s / totalSecs=${this.totalSecs}s`);
       this.patchTimer();
     });
     skipBtns.appendChild(skipFwd);
@@ -1210,6 +1223,7 @@ class ReadFlowWidget {
     const raw = text ?? extractText();
     const wordCount = raw.split(/\s+/).length;
     this.totalSecs = Math.max(10, Math.round(wordCount / (this.speed * BASE_WPM) * 60));
+    RF(`startPlaying: ${wordCount} words, totalSecs=${this.totalSecs}s, speed=${this.speed}`);
 
     this.ttsActive = true;
     this.playBtnEl.innerHTML = I.pause;
@@ -1267,11 +1281,13 @@ class ReadFlowWidget {
   }
 
   private patchTimer(): void {
-    const m = Math.floor(this.elapsed / 60);
-    const s = this.elapsed % 60;
+    const e = Math.floor(this.elapsed); // guard against float elapsed from skip
+    const m = Math.floor(e / 60);
+    const s = e % 60;
     this.timerEl.textContent = `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
     const CIRC = 2 * Math.PI * 20;
-    const dash = Math.min(1, this.elapsed / Math.max(1, this.totalSecs)) * CIRC;
+    const ratio = Math.min(1, e / Math.max(1, this.totalSecs));
+    const dash = ratio * CIRC;
     this.ringArc.setAttribute("stroke-dasharray", `${dash} ${CIRC}`);
   }
 
@@ -1328,12 +1344,13 @@ class ReadFlowWidget {
    *  has a meaningful total before the user presses play. Runs async so it
    *  doesn't block the widget appearing. Skipped if TTS is already active. */
   private preCalculateTotalTime(): void {
-    if (this.ttsActive || isPaused) return; // don't override an active session
+    if (this.ttsActive || isPaused) return;
     setTimeout(() => {
       try {
         const raw = extractText();
         const words = raw.split(/\s+/).length;
         this.totalSecs = Math.max(10, Math.round(words / (this.speed * BASE_WPM) * 60));
+        RF(`preCalc: ${words} words → totalSecs=${this.totalSecs}s at speed=${this.speed}`);
       } catch { /* non-critical */ }
     }, 0);
   }
