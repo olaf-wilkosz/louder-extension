@@ -112,9 +112,10 @@ const SHADOW_CSS = `
   transition: opacity .15s, background .15s, transform .15s;
 }
 .close-btn:hover { background: #666; transform: scale(1.15); }
-[data-state="expanded"] .close-btn,
-[data-state="playing"]  .close-btn { opacity: 1; pointer-events: auto; }
-[data-state="collapsed"] .pill:hover .close-btn { opacity: 1; pointer-events: auto; }
+/* close button: reveal on hover in all states */
+[data-state="collapsed"] .pill:hover .close-btn,
+[data-state="expanded"]  .pill:hover .close-btn,
+[data-state="playing"]   .pill:hover .close-btn { opacity: 1; pointer-events: auto; }
 
 /* ── chevron button ── */
 .chev-btn {
@@ -128,13 +129,10 @@ const SHADOW_CSS = `
 }
 .chev-btn:hover { background: var(--chip-bg-hover); color: var(--icon-hover); }
 
-/* show on hover when collapsed */
-[data-state="collapsed"] .pill:hover .chev-btn {
-  max-width: 28px; opacity: 1; pointer-events: auto;
-}
-/* always visible when expanded/playing */
-[data-state="expanded"] .chev-btn,
-[data-state="playing"]  .chev-btn {
+/* chevron: reveal on hover in all states */
+[data-state="collapsed"] .pill:hover .chev-btn,
+[data-state="expanded"]  .pill:hover .chev-btn,
+[data-state="playing"]   .pill:hover .chev-btn {
   max-width: 28px; opacity: 1; pointer-events: auto;
 }
 
@@ -534,6 +532,9 @@ class ReadFlowWidget {
   private saveDebounce: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
+    // Remove any orphaned host left by a previous extension load (reload / re-install)
+    document.getElementById("readflow-host")?.remove();
+
     this.host = document.createElement("div");
     this.host.id = "readflow-host";
     this.host.style.display = "none"; // revealed on first toggle()
@@ -1243,3 +1244,15 @@ chrome.runtime.onMessage.addListener((msg) => {
     case "READ_SELECTION":  getWidget().readSelection(); break;
   }
 });
+
+// When the extension is removed or force-reloaded, chrome.runtime.id throws.
+// Clean up the shadow DOM element so the user doesn't need to reload the tab.
+const _aliveCheck = setInterval(() => {
+  try { void chrome.runtime.id; }
+  catch {
+    clearInterval(_aliveCheck);
+    stopTTS();
+    document.getElementById("readflow-host")?.remove();
+    widget = null;
+  }
+}, 2000);
