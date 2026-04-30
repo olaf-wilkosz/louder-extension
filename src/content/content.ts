@@ -643,52 +643,6 @@ function resumeTTS(onDone?: () => void): void {
   speakFrom(currentIndex, onDone);
 }
 
-/** Best estimate of a sentence's real duration: use measured time if available,
- *  otherwise scale the word-count estimate by the measured real/estimated ratio. */
-function sentenceDuration(i: number, wps: number, ratio: number): number {
-  if (realSentenceDurations[i] !== undefined) return realSentenceDurations[i];
-  return (sentences[i]?.split(/\s+/).length ?? 0) / wps * ratio;
-}
-
-/** Skip forward/back by approximately `seconds` of real speech.
- *  Uses measured durations for already-heard sentences and ratio-adjusted
- *  estimates for unheard ones, so skips land meaningfully at high speeds. */
-function skipSeconds(seconds: number): number {
-  if (!sentences.length) return 0;
-  const wps = Math.max(0.1, ttsSpeed * BASE_WPM / 60);
-
-  // Measured real/estimated ratio from sentences already completed
-  const wordsHeard = sentences.slice(0, currentIndex).reduce((s, t) => s + t.split(/\s+/).length, 0);
-  const estHeard = wordsHeard / wps;
-  const ratio = realElapsedBase > 0 && estHeard > 0 ? realElapsedBase / estHeard : 1;
-
-  const dir = seconds > 0 ? 1 : -1;
-  const target = Math.abs(seconds);
-  const fromIdx = currentIndex;
-
-  let accumulated = 0;
-  let i = currentIndex;
-  for (;;) {
-    const next = i + dir;
-    if (next < 0 || next >= sentences.length) break;
-    accumulated += sentenceDuration(next, wps, ratio);
-    i = next;
-    if (accumulated >= target) break;
-  }
-
-  const newIdx = Math.max(0, Math.min(sentences.length - 1, i));
-
-  // Reconstruct elapsed at the new position from known + estimated durations
-  let newElapsed = 0;
-  for (let j = 0; j < newIdx; j++) newElapsed += sentenceDuration(j, wps, ratio);
-
-  RF(`skip ${seconds > 0 ? "+" : ""}${seconds}s: idx ${fromIdx}→${newIdx}/${sentences.length}, accumulated=${(accumulated * dir).toFixed(1)}s, ratio=${ratio.toFixed(2)}, newElapsed=${newElapsed.toFixed(1)}s`);
-  ttsGeneration++;
-  realElapsedBase = newElapsed;
-  speechSynthesis.cancel();
-  speakFrom(newIdx, ttsOnDone);
-  return accumulated * dir;
-}
 
 /* ═══════════════════════════════════════════════════════════════════
    WIDGET
@@ -946,20 +900,30 @@ class ReadFlowWidget {
 
     const skipBack = document.createElement("button");
     skipBack.className = "skip-btn";
-    skipBack.innerHTML = `<span style="font-size:10px">◂</span>10`;
+    skipBack.textContent = "◂";
     skipBack.addEventListener("click", () => {
-      skipSeconds(-10);
-      RF(`skipBack: idx=${currentIndex}, elapsed=${Math.floor(calcElapsed())}s / total=${Math.ceil(calculatedTotalSecs || this.totalSecs)}s`);
+      if (!sentences.length) return;
+      const newIdx = Math.max(0, currentIndex - 1);
+      const newElapsed = Array.from({ length: newIdx }, (_, j) => realSentenceDurations[j] ?? 0)
+                              .reduce((s, d) => s + d, 0);
+      RF(`skipBack: idx ${currentIndex}→${newIdx}, elapsed=${newElapsed.toFixed(1)}s`);
+      ttsGeneration++; realElapsedBase = newElapsed;
+      speechSynthesis.cancel(); speakFrom(newIdx, ttsOnDone);
       this.patchTimer();
     });
     skipBtns.appendChild(skipBack);
 
     const skipFwd = document.createElement("button");
     skipFwd.className = "skip-btn";
-    skipFwd.innerHTML = `10<span style="font-size:10px">▸</span>`;
+    skipFwd.textContent = "▸";
     skipFwd.addEventListener("click", () => {
-      skipSeconds(10);
-      RF(`skipFwd: idx=${currentIndex}, elapsed=${Math.floor(calcElapsed())}s / total=${Math.ceil(calculatedTotalSecs || this.totalSecs)}s`);
+      if (!sentences.length) return;
+      const newIdx = Math.min(sentences.length - 1, currentIndex + 1);
+      const newElapsed = Array.from({ length: newIdx }, (_, j) => realSentenceDurations[j] ?? 0)
+                              .reduce((s, d) => s + d, 0);
+      RF(`skipFwd: idx ${currentIndex}→${newIdx}, elapsed=${newElapsed.toFixed(1)}s`);
+      ttsGeneration++; realElapsedBase = newElapsed;
+      speechSynthesis.cancel(); speakFrom(newIdx, ttsOnDone);
       this.patchTimer();
     });
     skipBtns.appendChild(skipFwd);
