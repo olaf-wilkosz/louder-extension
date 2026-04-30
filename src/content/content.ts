@@ -357,6 +357,12 @@ let ttsSpeed = 1.0;
 let ttsLang  = "";
 let pageFingerprint = "";
 
+// Cross-tab coordination — speechSynthesis is a browser-global singleton so
+// any tab starting playback cancels every other tab's audio silently.
+// We use storage to broadcast ownership so displaced tabs can update their UI.
+const INSTANCE_ID      = Math.random().toString(36).slice(2, 10);
+const PLAYING_OWNER_KEY = "readflow_playing_owner";
+
 // Cache voices at module level — getVoices() returns [] until the async load completes.
 // We keep this updated so speakFrom always has a full list to pick from.
 let voiceCache: SpeechSynthesisVoice[] = speechSynthesis.getVoices();
@@ -521,8 +527,8 @@ function speakFrom(index: number, onDone?: () => void): void {
 
 function startTTS(text?: string, onDone?: () => void): void {
   speechSynthesis.cancel(); removeHighlight(); isPaused = false;
+  chrome.storage.local.set({ [PLAYING_OWNER_KEY]: INSTANCE_ID }); // claim TTS ownership
   const raw = text ?? extractText();
-  // Store fingerprint only for full-page reads so resume can detect translation changes
   pageFingerprint = text ? "" : raw.slice(0, 120);
   sentences = splitSentences(raw);
   speakFrom(0, onDone);
@@ -542,13 +548,12 @@ function pauseTTS(): void {
 }
 
 function resumeTTS(onDone?: () => void): void {
-  // For full-page reads, check whether the page content changed (e.g. translation)
-  // If it did, start fresh from the new text instead of resuming old sentences
+  chrome.storage.local.set({ [PLAYING_OWNER_KEY]: INSTANCE_ID }); // claim TTS ownership
   if (pageFingerprint) {
     const current = extractText();
     if (current.slice(0, 120) !== pageFingerprint) {
       pageFingerprint = current.slice(0, 120);
-      ttsLang = detectTextLang(current); // re-detect language of new content
+      ttsLang = detectTextLang(current);
       sentences = splitSentences(current);
       currentIndex = 0;
       isPaused = false;
@@ -1286,6 +1291,18 @@ class ReadFlowWidget {
   }
 
   // ── Public API ────────────────────────────────────────────────────
+  /** Called when another tab claimed TTS ownership. Speech is already gone —
+   *  just fake-pause so the user can click play to resume here if they return. */
+  notifyExternalStop(): void {
+    if (!this.ttsActive) return;
+    isPaused = true;       // keep sentences[] so user can resume
+    removeHighlight();
+    this.ttsActive = false;
+    this.stopTimer();
+    this.playBtnEl.innerHTML = I.play;
+    if (this.wState === "playing") this.goExpanded();
+  }
+
   toggle(): void {
     if (this.host.style.display === "none") {
       this.host.style.display = "";
@@ -1315,6 +1332,16 @@ chrome.runtime.onMessage.addListener((msg) => {
   switch (msg.type) {
     case "TOGGLE_PANEL":    getWidget().toggle(); break;
     case "READ_SELECTION":  getWidget().readSelection(); break;
+  }
+});
+
+// Cross-tab coordination: when another instance claims TTS ownership,
+// fake-pause this tab so its UI doesn't get stuck in a playing state.
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== "local" || !changes[PLAYING_OWNER_KEY]) return;
+  const newOwner = changes[PLAYING_OWNER_KEY].newValue;
+  if (newOwner && newOwner !== INSTANCE_ID && widget) {
+    widget.notifyExternalStop();
   }
 });
 
