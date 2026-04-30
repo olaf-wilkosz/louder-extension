@@ -406,12 +406,31 @@ function scoreExtraction(text: string, rawLength: number): number {
   return 1;
 }
 
+/** Extract from SPA conversation UIs (ChatGPT, Claude.ai, etc.) that wrap
+ *  each message turn in an <article>. A single <article> is likely a blog
+ *  post — leave those for Readability. */
+function extractConversationText(): string | null {
+  const articles = document.querySelectorAll<HTMLElement>("article");
+  if (articles.length < 2) return null;
+
+  const parts = Array.from(articles)
+    .map(el => el.innerText.trim())
+    .filter(t => t.length > 10);
+
+  const joined = parts.join("\n\n");
+  return joined.length > 100 ? joined : null;
+}
+
 function extractText(): string {
   // 1. Gmail — bypasses Readability which misreads Gmail's complex SPA DOM
   const gmailText = extractGmailText();
   if (gmailText) return gmailText;
 
-  // 2. Readability for article/blog pages — score before trusting it
+  // 2. SPA conversations: ChatGPT, Claude.ai, etc. — multiple <article> per turn
+  const convText = extractConversationText();
+  if (convText) return convText;
+
+  // 3. Readability for article/blog pages — score before trusting it
   try {
     const clone = document.cloneNode(true) as Document;
     const article = new Readability(clone).parse();
@@ -419,7 +438,12 @@ function extractText(): string {
     if (scoreExtraction(text, document.body.innerText.length) >= 0.8) return text;
   } catch (_) { /* fall through */ }
 
-  // 3. Raw fallback — always complete, sometimes noisy
+  // 4. Semantic main content — better scoped than full body
+  const mainEl = document.querySelector<HTMLElement>("main, [role='main']");
+  const mainText = mainEl?.innerText.trim() ?? "";
+  if (mainText.length > 200) return mainText;
+
+  // 5. Raw fallback — always complete, sometimes noisy
   return document.body.innerText.trim();
 }
 
