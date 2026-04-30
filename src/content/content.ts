@@ -54,6 +54,9 @@ const I = {
   // Single right-pointing chevron; CSS rotates it 180° in collapsed state
   chev:    `<svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2l4 4-4 4"/></svg>`,
   close:   `<svg width="7" height="7" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1 1l6 6M7 1L1 7"/></svg>`,
+  // Sentence navigation: vertical bar + filled triangle
+  stepBack: `<svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect x="1" y="1.5" width="2" height="9" rx="1"/><path d="M10.5 2 L3.5 6 10.5 10z"/></svg>`,
+  stepFwd:  `<svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect x="9" y="1.5" width="2" height="9" rx="1"/><path d="M1.5 2 L8.5 6 1.5 10z"/></svg>`,
 };
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -206,11 +209,11 @@ const SHADOW_CSS = `
 .timer-slot:hover .timer-val { opacity: 0; }
 .timer-slot:hover .skip-btns { opacity: 1; }
 .skip-btn {
-  height: 26px; padding: 0 8px; border-radius: 13px;
-  border: 1px solid var(--border); background: var(--chip-bg); color: var(--icon);
-  font-size: 11px; font-weight: 600; font-family: inherit;
-  cursor: pointer; display: flex; align-items: center; gap: 3px;
-  transition: background .12s, color .12s;
+  width: 28px; height: 28px; border-radius: 50%; border: none;
+  background: transparent; color: var(--icon);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0;
+  transition: background .14s, color .14s;
 }
 .skip-btn:hover { background: var(--chip-bg-hover); color: var(--icon-hover); }
 
@@ -340,11 +343,6 @@ const SHADOW_CSS = `
 }
 .theme-btn.active { background: var(--chip-bg-hover); font-weight: 600; color: var(--text); }
 `;
-
-/* ═══════════════════════════════════════════════════════════════════
-   DEBUG  —  filter browser console by "[RF]" to see only ReadFlow logs
-═══════════════════════════════════════════════════════════════════ */
-const RF = (...a: unknown[]) => console.log("[RF]", ...a);
 
 /* ═══════════════════════════════════════════════════════════════════
    TTS ENGINE
@@ -583,7 +581,6 @@ function speakFrom(index: number, onDone?: () => void): void {
         calculatedTotalSecs = realElapsedBase + (totalWords - wordsRead) / Math.max(0.1, actualWps);
       }
       const estDur = (sentence.split(/\s+/).length) / Math.max(0.1, ttsSpeed * BASE_WPM / 60);
-      RF(`sent ${currentIndex}: real=${realDur.toFixed(1)}s est=${estDur.toFixed(1)}s ratio=${(realDur/estDur).toFixed(2)} | elapsed=${realElapsedBase.toFixed(1)}s total=${calculatedTotalSecs.toFixed(1)}s`);
       speakFrom(currentIndex + 1, onDone);
     }
   };
@@ -602,7 +599,6 @@ function startTTS(text?: string, onDone?: () => void): void {
   realElapsedBase = 0; realSentenceDurations = [];
   const wps = Math.max(0.1, ttsSpeed * BASE_WPM / 60);
   calculatedTotalSecs = sentences.reduce((s, sent) => s + sent.split(/\s+/).length / wps, 0);
-  RF(`startTTS: ${sentences.length} sentences, calcTotal=${calculatedTotalSecs.toFixed(1)}s, speed=${ttsSpeed}, lang="${ttsLang}"`);
   speakFrom(0, onDone);
 }
 
@@ -628,7 +624,6 @@ function resumeTTS(onDone?: () => void): void {
   if (pageFingerprint) {
     const current = extractText();
     if (current.slice(0, 120) !== pageFingerprint) {
-      RF(`resumeTTS: content changed — restarting fresh`);
       pageFingerprint = current.slice(0, 120);
       ttsLang = detectTextLang(current);
       sentences = splitSentences(current);
@@ -638,7 +633,6 @@ function resumeTTS(onDone?: () => void): void {
       return;
     }
   }
-  RF(`resumeTTS: idx=${currentIndex}/${sentences.length}`);
   isPaused = false;
   speakFrom(currentIndex, onDone);
 }
@@ -900,13 +894,12 @@ class ReadFlowWidget {
 
     const skipBack = document.createElement("button");
     skipBack.className = "skip-btn";
-    skipBack.textContent = "◂";
+    skipBack.innerHTML = I.stepBack;
     skipBack.addEventListener("click", () => {
       if (!sentences.length) return;
       const newIdx = Math.max(0, currentIndex - 1);
       const newElapsed = Array.from({ length: newIdx }, (_, j) => realSentenceDurations[j] ?? 0)
                               .reduce((s, d) => s + d, 0);
-      RF(`skipBack: idx ${currentIndex}→${newIdx}, elapsed=${newElapsed.toFixed(1)}s`);
       ttsGeneration++; realElapsedBase = newElapsed;
       speechSynthesis.cancel(); speakFrom(newIdx, ttsOnDone);
       this.patchTimer();
@@ -915,13 +908,12 @@ class ReadFlowWidget {
 
     const skipFwd = document.createElement("button");
     skipFwd.className = "skip-btn";
-    skipFwd.textContent = "▸";
+    skipFwd.innerHTML = I.stepFwd;
     skipFwd.addEventListener("click", () => {
       if (!sentences.length) return;
       const newIdx = Math.min(sentences.length - 1, currentIndex + 1);
       const newElapsed = Array.from({ length: newIdx }, (_, j) => realSentenceDurations[j] ?? 0)
                               .reduce((s, d) => s + d, 0);
-      RF(`skipFwd: idx ${currentIndex}→${newIdx}, elapsed=${newElapsed.toFixed(1)}s`);
       ttsGeneration++; realElapsedBase = newElapsed;
       speechSynthesis.cancel(); speakFrom(newIdx, ttsOnDone);
       this.patchTimer();
@@ -1273,8 +1265,6 @@ class ReadFlowWidget {
     const raw = text ?? extractText();
     const wordCount = raw.split(/\s+/).length;
     this.totalSecs = Math.max(10, Math.round(wordCount / (this.speed * BASE_WPM) * 60));
-    RF(`startPlaying: ${wordCount} words, est totalSecs=${this.totalSecs}s, speed=${this.speed}`);
-
     this.ttsActive = true;
     this.playBtnEl.innerHTML = I.pause;
     this.startTimer();
@@ -1318,9 +1308,6 @@ class ReadFlowWidget {
     this.stopTimer();
     this.timerInterval = setInterval(() => {
       this.patchTimer();
-      const e = calcElapsed();
-      if (Math.floor(e) % 5 === 0 && Math.floor(e) > 0)
-        RF(`tick: real=${e.toFixed(1)}s, idx=${currentIndex}/${sentences.length}, total=${calculatedTotalSecs.toFixed(1)}s`);
     }, 1000);
   }
 
@@ -1406,7 +1393,6 @@ class ReadFlowWidget {
         const raw = extractText();
         const words = raw.split(/\s+/).length;
         this.totalSecs = Math.max(10, Math.round(words / (this.speed * BASE_WPM) * 60));
-        RF(`preCalc: ${words} words → totalSecs=${this.totalSecs}s at speed=${this.speed}`);
       } catch { /* non-critical */ }
     }, 0);
   }
