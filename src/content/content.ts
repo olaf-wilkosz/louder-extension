@@ -362,7 +362,8 @@ let ttsSpeed = 1.0;
 let ttsLang  = "";
 let pageFingerprint = "";
 let sentenceStartTime = 0;    // Date.now() when current sentence began speaking
-let calculatedTotalSecs = 0;  // sum of sentence durations at current ttsSpeed
+let realElapsedBase  = 0;     // accumulated real seconds for all completed sentences
+let calculatedTotalSecs = 0;  // estimated total; recalibrated from actual sentence timings
 // Generation counter — incremented on every cancel/restart so stale onend
 // callbacks from a previous chain do not spawn a second concurrent chain.
 let ttsGeneration = 0;
@@ -395,17 +396,13 @@ function detectTextLang(text: string): string {
   return declared ? declared.split("-")[0].toLowerCase() : navigator.language.split("-")[0].toLowerCase();
 }
 
-/** Returns elapsed seconds based on sentences read so far + time into the current sentence.
- *  Decouples the displayed time from wall-clock so skip and speed changes stay accurate. */
+/** Returns real elapsed seconds: actual time spent on completed sentences
+ *  plus wall-clock time into the current sentence. No word-count estimation —
+ *  accurate regardless of how fast Chrome's TTS actually speaks at the set rate. */
 function calcElapsed(): number {
-  if (!sentences.length) return 0;
-  const wps = Math.max(0.1, ttsSpeed * BASE_WPM / 60);
-  let base = 0;
-  const upTo = Math.min(currentIndex, sentences.length);
-  for (let i = 0; i < upTo; i++) base += sentences[i].split(/\s+/).length / wps;
-  if (isPaused || currentIndex >= sentences.length) return base;
-  const sentDur = (sentences[currentIndex]?.split(/\s+/).length ?? 0) / wps;
-  return base + Math.min((Date.now() - sentenceStartTime) / 1000, sentDur);
+  if (!sentences.length || sentenceStartTime === 0) return 0;
+  if (isPaused || currentIndex >= sentences.length) return realElapsedBase;
+  return realElapsedBase + (Date.now() - sentenceStartTime) / 1000;
 }
 
 /** Extract email body text from Gmail's stable DOM containers.
@@ -543,7 +540,23 @@ function speakFrom(index: number, onDone?: () => void): void {
     if (auto) utt.voice = auto;
     else utt.lang = ttsLang;
   }
-  utt.onend  = () => { removeHighlight(); if (!isPaused && ttsGeneration === gen) speakFrom(currentIndex + 1, onDone); };
+  utt.onend = () => {
+    removeHighlight();
+    if (!isPaused && ttsGeneration === gen) {
+      const realDur = (Date.now() - sentenceStartTime) / 1000;
+      realElapsedBase += realDur;
+      // Recalibrate total from measured speaking rate so the ring stays honest
+      const wordsRead = sentences.slice(0, currentIndex + 1).reduce((s, t) => s + t.split(/\s+/).length, 0);
+      const totalWords = sentences.reduce((s, t) => s + t.split(/\s+/).length, 0);
+      if (wordsRead > 0) {
+        const actualWps = wordsRead / realElapsedBase;
+        calculatedTotalSecs = realElapsedBase + (totalWords - wordsRead) / Math.max(0.1, actualWps);
+      }
+      const estDur = (sentence.split(/\s+/).length) / Math.max(0.1, ttsSpeed * BASE_WPM / 60);
+      RF(`sent ${currentIndex}: real=${realDur.toFixed(1)}s est=${estDur.toFixed(1)}s ratio=${(realDur/estDur).toFixed(2)} | elapsed=${realElapsedBase.toFixed(1)}s total=${calculatedTotalSecs.toFixed(1)}s`);
+      speakFrom(currentIndex + 1, onDone);
+    }
+  };
   utt.onerror = e => { if (e.error !== "interrupted" && ttsGeneration === gen) speakFrom(currentIndex + 1, onDone); };
   speechSynthesis.speak(utt);
 }
@@ -555,6 +568,7 @@ function startTTS(text?: string, onDone?: () => void): void {
   const raw = text ?? extractText();
   pageFingerprint = text ? "" : raw.slice(0, 120);
   sentences = splitSentences(raw);
+  realElapsedBase = 0;
   const wps = Math.max(0.1, ttsSpeed * BASE_WPM / 60);
   calculatedTotalSecs = sentences.reduce((s, sent) => s + sent.split(/\s+/).length / wps, 0);
   RF(`startTTS: ${sentences.length} sentences, calcTotal=${calculatedTotalSecs.toFixed(1)}s, speed=${ttsSpeed}, lang="${ttsLang}"`);
@@ -564,7 +578,8 @@ function startTTS(text?: string, onDone?: () => void): void {
 function stopTTS(): void {
   ttsGeneration++;
   isPaused = false; speechSynthesis.cancel(); removeHighlight();
-  sentences = []; currentIndex = 0; sentenceStartTime = 0; calculatedTotalSecs = 0;
+  sentences = []; currentIndex = 0; sentenceStartTime = 0;
+  realElapsedBase = 0; calculatedTotalSecs = 0;
 }
 
 function pauseTTS(): void {
@@ -616,8 +631,9 @@ function skipSeconds(seconds: number): number {
   }
 
   const newIdx = Math.max(0, Math.min(sentences.length - 1, i));
-  RF(`skip ${seconds > 0 ? "+" : ""}${seconds}s: idx ${fromIdx}→${newIdx}/${sentences.length}, actual=${(accumulated * dir).toFixed(1)}s, wps=${wps.toFixed(1)}`);
-  ttsGeneration++; // invalidate any onend callbacks from the chain being replaced
+  RF(`skip ${seconds > 0 ? "+" : ""}${seconds}s: idx ${fromIdx}→${newIdx}/${sentences.length}, est=${(accumulated * dir).toFixed(1)}s, wps=${wps.toFixed(1)}`);
+  ttsGeneration++;
+  realElapsedBase = 0; // timer resets to 0 at new position; real rate unknown for unheard sentences
   speechSynthesis.cancel();
   speakFrom(newIdx);
   return accumulated * dir;
@@ -1285,7 +1301,12 @@ class ReadFlowWidget {
   // ── Timer ─────────────────────────────────────────────────────────
   private startTimer(): void {
     this.stopTimer();
-    this.timerInterval = setInterval(() => this.patchTimer(), 1000);
+    this.timerInterval = setInterval(() => {
+      this.patchTimer();
+      const e = calcElapsed();
+      if (Math.floor(e) % 5 === 0 && Math.floor(e) > 0)
+        RF(`tick: real=${e.toFixed(1)}s, idx=${currentIndex}/${sentences.length}, total=${calculatedTotalSecs.toFixed(1)}s`);
+    }, 1000);
   }
 
   private stopTimer(): void {
