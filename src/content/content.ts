@@ -103,6 +103,8 @@ const SHADOW_CSS = `
   transition: background 0.2s ease;
 }
 .pill:hover { background: var(--pill-bg-hover); }
+/* keep pill in hovered state while any panel is open */
+[data-panel-open] .pill { background: var(--pill-bg-hover); }
 
 /* ── close button ── */
 .close-btn {
@@ -680,7 +682,9 @@ class ReadFlowWidget {
   private hostStartRight = 0; private hostStartTop = 0;
   private hasDragged = false;
   private saveDebounce: ReturnType<typeof setTimeout> | null = null;
-  private lastTrigger: HTMLElement | undefined; // remembers which button opened the current panel
+  private lastTrigger: HTMLElement | undefined;
+  // Speed panel element refs — updated in-place to avoid popIn blink on each step
+  private spRefs: { hdrVal: HTMLElement; hdrWpm: HTMLElement; fill: HTMLElement; handle: HTMLElement; labels: HTMLButtonElement[] } | null = null;
 
   constructor() {
     // Remove any orphaned host left by a previous extension load (reload / re-install)
@@ -1006,8 +1010,9 @@ class ReadFlowWidget {
     this.speedBtnEl.classList.toggle("active",    id === "speed");
     this.voiceBtnEl.classList.toggle("active",    id === "voice");
 
+    this.root.toggleAttribute("data-panel-open", !!id);
     this.panelsCont.innerHTML = "";
-    if (!id) return;
+    if (!id) { this.spRefs = null; return; }
 
     const wrap = document.createElement("div");
     wrap.className = "panels-wrap";
@@ -1050,7 +1055,10 @@ class ReadFlowWidget {
 
     const hdr = document.createElement("div");
     hdr.className = "speed-hdr";
-    hdr.innerHTML = `<div><div class="speed-hdr-val">${this.speed}×</div><div class="speed-hdr-wpm">${wpm} wpm</div></div>`;
+    const hdrInfo = document.createElement("div");
+    const hdrVal = document.createElement("div"); hdrVal.className = "speed-hdr-val"; hdrVal.textContent = `${this.speed}×`;
+    const hdrWpm = document.createElement("div"); hdrWpm.className = "speed-hdr-wpm"; hdrWpm.textContent = `${wpm} wpm`;
+    hdrInfo.appendChild(hdrVal); hdrInfo.appendChild(hdrWpm); hdr.appendChild(hdrInfo);
     const hdrClose = document.createElement("div");
     hdrClose.className = "panel-close"; hdrClose.innerHTML = I.close;
     hdrClose.addEventListener("click", () => this.setPopup(null));
@@ -1070,10 +1078,11 @@ class ReadFlowWidget {
 
     const track = document.createElement("div");
     track.className = "speed-track";
-    track.innerHTML = `
-      <div class="speed-track-bg"></div>
-      <div class="speed-track-fill" style="top:${pct*100}%;height:${(1-pct)*100}%"></div>
-      <div class="speed-handle" style="top:${pct*100}%"></div>`;
+    const trackBg = document.createElement("div"); trackBg.className = "speed-track-bg"; track.appendChild(trackBg);
+    const trackFill = document.createElement("div"); trackFill.className = "speed-track-fill";
+    trackFill.style.top = `${pct*100}%`; trackFill.style.height = `${(1-pct)*100}%`; track.appendChild(trackFill);
+    const trackHandle = document.createElement("div"); trackHandle.className = "speed-handle";
+    trackHandle.style.top = `${pct*100}%`; track.appendChild(trackHandle);
 
     const pickFromY = (clientY: number) => {
       const rect = track.getBoundingClientRect();
@@ -1096,15 +1105,20 @@ class ReadFlowWidget {
 
     const labelsCol = document.createElement("div");
     labelsCol.className = "speed-labels";
+    const labelEls: HTMLButtonElement[] = [];
     SPEED_STOPS.forEach(s => {
       const lbl = document.createElement("button");
       lbl.className = `speed-label${s === this.speed ? " active" : ""}`;
       lbl.textContent = `${s}×`;
       lbl.addEventListener("click", () => this.applySpeed(s));
+      labelEls.push(lbl);
       labelsCol.appendChild(lbl);
     });
     body.appendChild(labelsCol);
     wrap.appendChild(body);
+
+    // Store refs so applySpeed can update values without rebuilding the panel
+    this.spRefs = { hdrVal, hdrWpm, fill: trackFill, handle: trackHandle, labels: labelEls };
     return wrap;
   }
 
@@ -1299,17 +1313,30 @@ class ReadFlowWidget {
   }
 
   private applySpeed(s: number): void {
+    const oldSpeed = this.speed;
     this.speed = s; ttsSpeed = s;
     this.speedBadgeEl.textContent = `${s}×`;
     if (sentences.length > 0) {
-      // Recalculate with new speed so timer/ring stay accurate mid-session
       const wps = Math.max(0.1, s * BASE_WPM / 60);
       calculatedTotalSecs = sentences.reduce((sum, sent) => sum + sent.split(/\s+/).length / wps, 0);
     } else {
-      this.totalSecs = Math.max(10, Math.round(this.totalSecs * (this.speed / s))); // scale pre-calc estimate
+      this.totalSecs = Math.max(10, Math.round(this.totalSecs * (oldSpeed / s)));
     }
     this.saveSettings();
-    this.setPopup("speed"); // lastTrigger remembered — panel repositions correctly
+
+    // Update speed panel in-place — avoids the popIn blink from a full rebuild
+    if (this.spRefs) {
+      const idx = SPEED_STOPS.indexOf(s);
+      const pct = idx / (SPEED_STOPS.length - 1);
+      this.spRefs.hdrVal.textContent = `${s}×`;
+      this.spRefs.hdrWpm.textContent = `${Math.round(s * BASE_WPM)} wpm`;
+      this.spRefs.fill.style.top    = `${pct * 100}%`;
+      this.spRefs.fill.style.height = `${(1 - pct) * 100}%`;
+      this.spRefs.handle.style.top  = `${pct * 100}%`;
+      this.spRefs.labels.forEach((lbl, i) => lbl.classList.toggle("active", SPEED_STOPS[i] === s));
+    } else {
+      this.setPopup("speed");
+    }
   }
 
   private handleClose(): void {
