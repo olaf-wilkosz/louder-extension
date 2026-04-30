@@ -117,8 +117,10 @@ const SHADOW_CSS = `
   opacity: 0; pointer-events: none;
   transition: opacity .15s, background .15s, transform .15s, color .15s;
 }
+/* X participates in the shared hover system — matches pill/panel when anything in root is hovered */
+.root:hover .close-btn { background: var(--pill-bg-hover); color: var(--icon-hover); }
 .close-btn:hover  { background: var(--pill-bg-hover); color: var(--icon-hover); transform: scale(1.15); }
-.close-btn:active { background: rgba(59,158,255,0.13); color: ${ACCENT}; }
+.close-btn:active { background: rgba(59,158,255,0.35); color: ${ACCENT}; }
 /* close button: reveal on hover in all states, or always when panel is open */
 [data-state="collapsed"] .pill:hover .close-btn,
 [data-state="expanded"]  .pill:hover .close-btn,
