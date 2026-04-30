@@ -367,6 +367,8 @@ let calculatedTotalSecs = 0;  // estimated total; recalibrated from actual sente
 // Generation counter — incremented on every cancel/restart so stale onend
 // callbacks from a previous chain do not spawn a second concurrent chain.
 let ttsGeneration = 0;
+// Stored completion callback so skip-restarted chains still trigger onTTSDone.
+let ttsOnDone: (() => void) | undefined;
 
 // Cross-tab coordination — speechSynthesis is a browser-global singleton so
 // any tab starting playback cancels every other tab's audio silently.
@@ -488,8 +490,35 @@ function extractText(): string {
   return document.body.innerText.trim();
 }
 
+const MAX_WORDS_PER_CHUNK = 60;
+
 function splitSentences(text: string): string[] {
-  return text.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(s => s.length > 0);
+  // Primary split on sentence-ending punctuation
+  const primary = text.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(s => s.length > 0);
+
+  // Secondary split: break chunks longer than MAX_WORDS_PER_CHUNK at
+  // commas/semicolons/colons/newlines so a block of numbers or code
+  // doesn't create a single utterance lasting minutes.
+  const result: string[] = [];
+  for (const chunk of primary) {
+    if (chunk.split(/\s+/).length <= MAX_WORDS_PER_CHUNK) {
+      result.push(chunk);
+      continue;
+    }
+    const sub = chunk.split(/(?<=[,;:\n])\s+/).map(s => s.trim()).filter(s => s.length > 0);
+    let current = "";
+    for (const piece of sub) {
+      const candidate = current ? `${current} ${piece}` : piece;
+      if (candidate.split(/\s+/).length > MAX_WORDS_PER_CHUNK && current) {
+        result.push(current);
+        current = piece;
+      } else {
+        current = candidate;
+      }
+    }
+    if (current) result.push(current);
+  }
+  return result;
 }
 
 function removeHighlight(): void {
@@ -563,6 +592,7 @@ function speakFrom(index: number, onDone?: () => void): void {
 
 function startTTS(text?: string, onDone?: () => void): void {
   ttsGeneration++;
+  ttsOnDone = onDone; // persist so skip-restarted chains can still call it
   speechSynthesis.cancel(); removeHighlight(); isPaused = false;
   chrome.storage.local.set({ [PLAYING_OWNER_KEY]: INSTANCE_ID });
   const raw = text ?? extractText();
@@ -577,6 +607,7 @@ function startTTS(text?: string, onDone?: () => void): void {
 
 function stopTTS(): void {
   ttsGeneration++;
+  ttsOnDone = undefined;
   isPaused = false; speechSynthesis.cancel(); removeHighlight();
   sentences = []; currentIndex = 0; sentenceStartTime = 0;
   realElapsedBase = 0; calculatedTotalSecs = 0;
@@ -591,6 +622,7 @@ function pauseTTS(): void {
 
 function resumeTTS(onDone?: () => void): void {
   ttsGeneration++;
+  ttsOnDone = onDone;
   chrome.storage.local.set({ [PLAYING_OWNER_KEY]: INSTANCE_ID });
   if (pageFingerprint) {
     const current = extractText();
@@ -633,9 +665,9 @@ function skipSeconds(seconds: number): number {
   const newIdx = Math.max(0, Math.min(sentences.length - 1, i));
   RF(`skip ${seconds > 0 ? "+" : ""}${seconds}s: idx ${fromIdx}→${newIdx}/${sentences.length}, est=${(accumulated * dir).toFixed(1)}s, wps=${wps.toFixed(1)}`);
   ttsGeneration++;
-  realElapsedBase = 0; // timer resets to 0 at new position; real rate unknown for unheard sentences
+  realElapsedBase = 0;
   speechSynthesis.cancel();
-  speakFrom(newIdx);
+  speakFrom(newIdx, ttsOnDone); // must pass stored callback or completion never fires
   return accumulated * dir;
 }
 
