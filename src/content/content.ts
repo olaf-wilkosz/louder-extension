@@ -363,6 +363,9 @@ let ttsLang  = "";
 let pageFingerprint = "";
 let sentenceStartTime = 0;    // Date.now() when current sentence began speaking
 let calculatedTotalSecs = 0;  // sum of sentence durations at current ttsSpeed
+// Generation counter — incremented on every cancel/restart so stale onend
+// callbacks from a previous chain do not spawn a second concurrent chain.
+let ttsGeneration = 0;
 
 // Cross-tab coordination — speechSynthesis is a browser-global singleton so
 // any tab starting playback cancels every other tab's audio silently.
@@ -526,6 +529,7 @@ function speakFrom(index: number, onDone?: () => void): void {
   currentIndex = index;
   sentenceStartTime = Date.now();
   const sentence = sentences[index];
+  const gen = ttsGeneration; // capture — stale callbacks from old chains will differ
   highlightSentence(sentence);
 
   const utt = new SpeechSynthesisUtterance(sentence);
@@ -534,19 +538,18 @@ function speakFrom(index: number, onDone?: () => void): void {
   if (v) {
     utt.voice = v;
   } else if (ttsLang) {
-    // Chrome ignores utt.lang reliably — pick a real voice from the cached list.
-    // voiceCache is populated by the voiceschanged listener at module load time.
     const candidates = voiceCache.filter(vv => vv.lang.toLowerCase().startsWith(ttsLang));
     const auto = candidates.find(vv => vv.default) ?? candidates[0];
     if (auto) utt.voice = auto;
-    else utt.lang = ttsLang; // last resort: no installed voice for this language
+    else utt.lang = ttsLang;
   }
-  utt.onend  = () => { removeHighlight(); if (!isPaused) speakFrom(currentIndex + 1, onDone); };
-  utt.onerror = e => { if (e.error !== "interrupted") speakFrom(currentIndex + 1, onDone); };
+  utt.onend  = () => { removeHighlight(); if (!isPaused && ttsGeneration === gen) speakFrom(currentIndex + 1, onDone); };
+  utt.onerror = e => { if (e.error !== "interrupted" && ttsGeneration === gen) speakFrom(currentIndex + 1, onDone); };
   speechSynthesis.speak(utt);
 }
 
 function startTTS(text?: string, onDone?: () => void): void {
+  ttsGeneration++;
   speechSynthesis.cancel(); removeHighlight(); isPaused = false;
   chrome.storage.local.set({ [PLAYING_OWNER_KEY]: INSTANCE_ID });
   const raw = text ?? extractText();
@@ -559,19 +562,20 @@ function startTTS(text?: string, onDone?: () => void): void {
 }
 
 function stopTTS(): void {
+  ttsGeneration++;
   isPaused = false; speechSynthesis.cancel(); removeHighlight();
   sentences = []; currentIndex = 0; sentenceStartTime = 0; calculatedTotalSecs = 0;
 }
 
 function pauseTTS(): void {
+  ttsGeneration++;
   isPaused = true;
-  // Chrome's speechSynthesis.pause() is unreliable — fake-pause by cancelling
-  // and leaving sentences[] / currentIndex intact for resumeTTS to re-speak from.
   speechSynthesis.cancel();
   removeHighlight();
 }
 
 function resumeTTS(onDone?: () => void): void {
+  ttsGeneration++;
   chrome.storage.local.set({ [PLAYING_OWNER_KEY]: INSTANCE_ID });
   if (pageFingerprint) {
     const current = extractText();
@@ -613,6 +617,7 @@ function skipSeconds(seconds: number): number {
 
   const newIdx = Math.max(0, Math.min(sentences.length - 1, i));
   RF(`skip ${seconds > 0 ? "+" : ""}${seconds}s: idx ${fromIdx}→${newIdx}/${sentences.length}, actual=${(accumulated * dir).toFixed(1)}s, wps=${wps.toFixed(1)}`);
+  ttsGeneration++; // invalidate any onend callbacks from the chain being replaced
   speechSynthesis.cancel();
   speakFrom(newIdx);
   return accumulated * dir;
