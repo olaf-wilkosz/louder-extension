@@ -379,13 +379,47 @@ function detectTextLang(text: string): string {
   return declared ? declared.split("-")[0].toLowerCase() : navigator.language.split("-")[0].toLowerCase();
 }
 
+/** Extract email body text from Gmail's stable DOM containers.
+ *  Returns null if not on Gmail or no body found. */
+function extractGmailText(): string | null {
+  if (!location.hostname.includes("mail.google.com")) return null;
+
+  // .ii.gt is Gmail's rendered email body wrapper — present in both single
+  // and threaded views. Collect all expanded messages in the thread.
+  const bodies = document.querySelectorAll<HTMLElement>(".ii.gt");
+  if (!bodies.length) return null;
+
+  const parts = Array.from(bodies)
+    .map(el => el.innerText.trim())
+    .filter(t => t.length > 30);
+
+  return parts.length ? parts.join("\n\n") : null;
+}
+
+/** Score Readability output quality: 0 (bad) → 1 (good).
+ *  Penalises extractions that are suspiciously short or have no sentence structure. */
+function scoreExtraction(text: string, rawLength: number): number {
+  if (text.length < 200) return 0;
+  const sentences = (text.match(/[.!?]+/g) ?? []).length;
+  if (sentences < 3) return 0.2;                          // probably grabbed a fragment
+  if (rawLength > 5000 && text.length < rawLength * 0.08) return 0.4; // Readability missed a lot
+  return 1;
+}
+
 function extractText(): string {
+  // 1. Gmail — bypasses Readability which misreads Gmail's complex SPA DOM
+  const gmailText = extractGmailText();
+  if (gmailText) return gmailText;
+
+  // 2. Readability for article/blog pages — score before trusting it
   try {
     const clone = document.cloneNode(true) as Document;
     const article = new Readability(clone).parse();
-    if (article?.textContent && article.textContent.trim().length > 200)
-      return article.textContent.trim();
+    const text = article?.textContent?.trim() ?? "";
+    if (scoreExtraction(text, document.body.innerText.length) >= 0.8) return text;
   } catch (_) { /* fall through */ }
+
+  // 3. Raw fallback — always complete, sometimes noisy
   return document.body.innerText.trim();
 }
 
