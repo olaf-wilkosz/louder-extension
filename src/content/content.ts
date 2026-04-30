@@ -1345,14 +1345,21 @@ chrome.storage.onChanged.addListener((changes, area) => {
   }
 });
 
-// When the extension is removed or force-reloaded, chrome.runtime.id throws.
-// Clean up the shadow DOM element so the user doesn't need to reload the tab.
-const _aliveCheck = setInterval(() => {
-  try { void chrome.runtime.id; }
-  catch {
-    clearInterval(_aliveCheck);
+// Detect extension removal via a keepalive port.
+// The port disconnects when the service worker sleeps (normal — reconnect)
+// or when the extension is removed (connect() throws — clean up).
+function connectKeepalive(): void {
+  try {
+    const port = chrome.runtime.connect({ name: "readflow-keepalive" });
+    port.onDisconnect.addListener(() => {
+      // Wait briefly then try to reconnect; if extension is gone connect() throws.
+      setTimeout(connectKeepalive, 200);
+    });
+  } catch {
+    // Extension removed or reloaded — tear everything down.
     stopTTS();
     document.getElementById("readflow-host")?.remove();
     widget = null;
   }
-}, 2000);
+}
+connectKeepalive();

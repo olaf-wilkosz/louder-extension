@@ -1,3 +1,7 @@
+// Accept keepalive ports from content scripts — no action needed, just prevent
+// "Could not establish connection" errors and keep the SW awake while connected.
+chrome.runtime.onConnect.addListener((_port) => { /* keepalive — no-op */ });
+
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: "readflow-selection",
