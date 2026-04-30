@@ -7,7 +7,6 @@ const ACCENT      = "#3b9eff";
 const ACCENT_GLOW = "#3b9eff55";
 const SPEED_STOPS = [5, 4, 3, 2, 1.5, 1, 0.75, 0.5, 0.25];
 const BASE_WPM    = 180;
-const DOT_COLORS  = ["#888", "#4ade80", "#60a5fa", "#f472b6"];
 
 type ThemeVars = {
   bg: string; panelBg: string; border: string; divider: string;
@@ -309,7 +308,8 @@ const SHADOW_CSS = `
 .speed-label.active { font-weight: 600; color: var(--text); }
 
 /* ── voice panel ── */
-.voice-panel { padding: 10px 8px; min-width: 200px; }
+.voice-panel { padding: 10px 8px; min-width: 220px; }
+.voice-list  { max-height: 260px; overflow-y: auto; }
 .panel-hdr { display: flex; align-items: center; justify-content: space-between; padding: 2px 8px 8px; }
 .panel-lbl { font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--subtext); }
 .panel-close { cursor: pointer; color: var(--subtext); display: flex; }
@@ -319,7 +319,13 @@ const SHADOW_CSS = `
 }
 .voice-item:hover:not(.active) { background: var(--voice-hover); }
 .voice-item.active { background: rgba(59,158,255,0.13); }
-.voice-dot  { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.voice-avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--chip-bg); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--icon);
+}
+.voice-item.active .voice-avatar { background: rgba(59,158,255,0.13); color: ${ACCENT}; }
 .voice-name { font-size: 13px; line-height: 1.2; color: var(--icon); }
 .voice-item.active .voice-name { font-weight: 600; color: var(--text); }
 .voice-hint   { font-size: 10px; color: var(--subtext); margin-top: 1px; }
@@ -350,6 +356,30 @@ let isPaused = false;
 let currentMark: HTMLElement | null = null;
 let voiceURI = "";
 let ttsSpeed = 1.0;
+let ttsLang  = "";
+let pageFingerprint = "";
+
+// Cache voices at module level — getVoices() returns [] until the async load completes.
+// We keep this updated so speakFrom always has a full list to pick from.
+let voiceCache: SpeechSynthesisVoice[] = speechSynthesis.getVoices();
+speechSynthesis.addEventListener("voiceschanged", () => {
+  voiceCache = speechSynthesis.getVoices();
+});
+
+/** Detect language from text content. Falls back to page/browser lang. */
+function detectTextLang(text: string): string {
+  const sample = text.slice(0, 1500);
+  // Polish diacritics are a near-certain signal — but require enough of them to
+  // avoid false positives from Polish UI text leaking into the extraction.
+  // A real Polish email body will have 10+ per 1500 chars; UI contamination adds ~2-5.
+  const plDiacritics = (sample.match(/[ąęóśżźćńłĄĘÓŚŻŹĆŃŁ]/g) ?? []).length;
+  if (plDiacritics >= 8) return "pl";
+  // English "the" is unique to English
+  if ((sample.toLowerCase().match(/\bthe\b/g) ?? []).length > 2) return "en";
+  // Fall back to page declared lang, then browser lang
+  const declared = document.documentElement.lang;
+  return declared ? declared.split("-")[0].toLowerCase() : navigator.language.split("-")[0].toLowerCase();
+}
 
 function extractText(): string {
   try {
@@ -402,7 +432,17 @@ function speakFrom(index: number, onDone?: () => void): void {
 
   const utt = new SpeechSynthesisUtterance(sentence);
   utt.rate = ttsSpeed;
-  const v = getVoice(); if (v) utt.voice = v;
+  const v = getVoice();
+  if (v) {
+    utt.voice = v;
+  } else if (ttsLang) {
+    // Chrome ignores utt.lang reliably — pick a real voice from the cached list.
+    // voiceCache is populated by the voiceschanged listener at module load time.
+    const candidates = voiceCache.filter(vv => vv.lang.toLowerCase().startsWith(ttsLang));
+    const auto = candidates.find(vv => vv.default) ?? candidates[0];
+    if (auto) utt.voice = auto;
+    else utt.lang = ttsLang; // last resort: no installed voice for this language
+  }
   utt.onend  = () => { removeHighlight(); if (!isPaused) speakFrom(currentIndex + 1, onDone); };
   utt.onerror = e => { if (e.error !== "interrupted") speakFrom(currentIndex + 1, onDone); };
   speechSynthesis.speak(utt);
@@ -410,13 +450,43 @@ function speakFrom(index: number, onDone?: () => void): void {
 
 function startTTS(text?: string, onDone?: () => void): void {
   speechSynthesis.cancel(); removeHighlight(); isPaused = false;
-  sentences = splitSentences(text ?? extractText());
+  const raw = text ?? extractText();
+  // Store fingerprint only for full-page reads so resume can detect translation changes
+  pageFingerprint = text ? "" : raw.slice(0, 120);
+  sentences = splitSentences(raw);
   speakFrom(0, onDone);
 }
 
 function stopTTS(): void {
   isPaused = false; speechSynthesis.cancel(); removeHighlight();
   sentences = []; currentIndex = 0;
+}
+
+function pauseTTS(): void {
+  isPaused = true;
+  // Chrome's speechSynthesis.pause() is unreliable — fake-pause by cancelling
+  // and leaving sentences[] / currentIndex intact for resumeTTS to re-speak from.
+  speechSynthesis.cancel();
+  removeHighlight();
+}
+
+function resumeTTS(onDone?: () => void): void {
+  // For full-page reads, check whether the page content changed (e.g. translation)
+  // If it did, start fresh from the new text instead of resuming old sentences
+  if (pageFingerprint) {
+    const current = extractText();
+    if (current.slice(0, 120) !== pageFingerprint) {
+      pageFingerprint = current.slice(0, 120);
+      ttsLang = detectTextLang(current); // re-detect language of new content
+      sentences = splitSentences(current);
+      currentIndex = 0;
+      isPaused = false;
+      speakFrom(0, onDone);
+      return;
+    }
+  }
+  isPaused = false;
+  speakFrom(currentIndex, onDone);
 }
 
 function skipSentences(delta: number): void {
@@ -437,6 +507,7 @@ class ReadFlowWidget {
 
   // State
   private wState: WidgetState = "collapsed";
+  private ttsActive = false; // true while TTS is actually speaking (independent of visual state)
   private popup: PopupId | null = null;
   private themeChoice: ThemeChoice = "dark";
   private speed = 1;
@@ -474,6 +545,10 @@ class ReadFlowWidget {
       this.applyThemeVars();
       this.buildDOM();
       this.setupDrag();
+      // Rebuild voice panel if it's open when the browser finishes loading voices async
+      speechSynthesis.addEventListener("voiceschanged", () => {
+        if (this.popup === "voice") this.setPopup("voice");
+      });
     });
 
     window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
@@ -599,8 +674,14 @@ class ReadFlowWidget {
     chevIcon.innerHTML = I.chev;
     chevBtn.appendChild(chevIcon);
     chevBtn.addEventListener("click", () => {
-      if (this.wState === "collapsed") this.goExpanded();
-      else this.goCollapsed();
+      if (this.wState === "collapsed") {
+        // Expand: if TTS is running show playing state, otherwise expanded-idle
+        if (this.ttsActive) this.goPlaying();
+        else this.goExpanded();
+      } else {
+        // Collapse: purely visual — TTS keeps playing
+        this.goCollapsed();
+      }
     });
     pill.appendChild(chevBtn);
 
@@ -737,26 +818,22 @@ class ReadFlowWidget {
     });
   }
 
-  // ── State transitions (just flip data-state + minimal DOM) ───────
+  // ── State transitions — purely visual, never touch TTS ───────────
   private goCollapsed(): void {
     this.wState = "collapsed";
     this.root.dataset.state = "collapsed";
-    this.playBtnEl.innerHTML = I.play;
-    this.stopTimer();
     this.setPopup(null);
   }
 
   private goExpanded(): void {
     this.wState = "expanded";
     this.root.dataset.state = "expanded";
-    this.playBtnEl.innerHTML = I.play;
     this.setPopup(null);
   }
 
   private goPlaying(): void {
     this.wState = "playing";
     this.root.dataset.state = "playing";
-    this.playBtnEl.innerHTML = I.pause;
   }
 
   // ── Popup ─────────────────────────────────────────────────────────
@@ -855,6 +932,21 @@ class ReadFlowWidget {
     return wrap;
   }
 
+  private detectPageLang(): string {
+    const raw = document.documentElement.lang || "";
+    if (raw) return raw.split("-")[0].toLowerCase();
+    return navigator.language.split("-")[0].toLowerCase();
+  }
+
+  /** Returns all installed voices sorted by relevance: system lang first, then alphabetically. */
+  private getRelevantVoices(): SpeechSynthesisVoice[] {
+    const sysLang = navigator.language.split("-")[0].toLowerCase();
+    const sys   = voiceCache.filter(v =>  v.lang.toLowerCase().startsWith(sysLang));
+    const other = voiceCache.filter(v => !v.lang.toLowerCase().startsWith(sysLang))
+                            .sort((a, b) => a.lang.localeCompare(b.lang));
+    return [...sys, ...other];
+  }
+
   private buildVoicePanel(): HTMLElement {
     const wrap = document.createElement("div");
     wrap.className = "panel voice-panel";
@@ -868,35 +960,64 @@ class ReadFlowWidget {
     hdr.appendChild(hdrClose);
     wrap.appendChild(hdr);
 
-    const voices = speechSynthesis.getVoices()
-      .filter(v => v.lang.startsWith("pl") || v.lang.startsWith("en"))
-      .slice(0, 4);
+    const voices = this.getRelevantVoices();
 
-    const entries = [
-      { uri: "", name: "Default", hint: "System voice", dot: DOT_COLORS[0] },
-      ...voices.map((v, i) => ({
+    type VoiceEntry = { uri: string; name: string; hint: string };
+    const entries: VoiceEntry[] = [
+      { uri: "", name: "Default", hint: "Browser default" },
+      ...voices.filter(v => v.voiceURI).map(v => ({   // skip any voice with empty voiceURI — would duplicate Default
         uri:  v.voiceURI,
         name: v.name.replace(/^Microsoft\s+/i, "").replace(/\s+Desktop.*$/i, ""),
         hint: v.lang,
-        dot:  DOT_COLORS[(i + 1) % DOT_COLORS.length],
       })),
     ];
+
+    const list = document.createElement("div");
+    list.className = "voice-list";
+
+    if (voices.length === 0) {
+      const loading = document.createElement("div");
+      loading.style.cssText = "padding:6px 10px 10px;font-size:12px;color:var(--subtext);";
+      loading.textContent = "Loading voices…";
+      list.appendChild(loading);
+    }
 
     entries.forEach(entry => {
       const active = this.activeVoiceURI === entry.uri;
       const item = document.createElement("div");
       item.className = `voice-item${active ? " active" : ""}`;
-      item.innerHTML = `
-        <div class="voice-dot" style="background:${entry.dot}"></div>
-        <div><div class="voice-name">${entry.name}</div><div class="voice-hint">${entry.hint}</div></div>
-        ${active ? `<div class="voice-accent"></div>` : ""}`;
+
+      const avatar = document.createElement("div");
+      avatar.className = "voice-avatar";
+      avatar.innerHTML = I.person;
+
+      const textDiv = document.createElement("div");
+      textDiv.style.flex = "1";
+      const nameEl = document.createElement("div");
+      nameEl.className = "voice-name";
+      nameEl.textContent = entry.name;
+      const hintEl = document.createElement("div");
+      hintEl.className = "voice-hint";
+      hintEl.textContent = entry.hint;
+      textDiv.appendChild(nameEl);
+      textDiv.appendChild(hintEl);
+
+      item.appendChild(avatar);
+      item.appendChild(textDiv);
+      if (active) {
+        const accent = document.createElement("div");
+        accent.className = "voice-accent";
+        item.appendChild(accent);
+      }
+
       item.addEventListener("click", () => {
         this.activeVoiceURI = entry.uri; voiceURI = entry.uri;
         this.saveSettings(); this.setPopup(null);
       });
-      wrap.appendChild(item);
+      list.appendChild(item);
     });
 
+    wrap.appendChild(list);
     return wrap;
   }
 
@@ -948,13 +1069,40 @@ class ReadFlowWidget {
 
   // ── Playback ──────────────────────────────────────────────────────
   private handlePlayClick(): void {
-    if (this.wState === "playing") {
-      stopTTS();
-      this.stopTimer();
-      this.goExpanded();
+    if (this.ttsActive) {
+      // Pause
+      pauseTTS();
+      this.ttsActive = false;
+      this.playBtnEl.innerHTML = I.play;
+      // If the pill was showing the playing (expanded) view, drop back to expanded-idle
+      if (this.wState === "playing") {
+        this.stopTimer();
+        this.goExpanded();
+      }
+    } else if (isPaused && sentences.length > 0) {
+      // Resume paused session from wherever the widget sits visually
+      this.ttsActive = true;
+      this.playBtnEl.innerHTML = I.pause;
+      if (this.wState !== "collapsed") {
+        this.goPlaying();
+        this.startTimer();
+      } else {
+        // Stay collapsed — timer still ticks in background so expanding later shows correct time
+        this.startTimer();
+      }
+      resumeTTS(() => this.onTTSDone());
     } else {
+      // Fresh start
       this.startPlaying();
     }
+  }
+
+  /** Called when TTS finishes naturally (not paused/stopped). */
+  private onTTSDone(): void {
+    this.ttsActive = false;
+    this.stopTimer();
+    this.playBtnEl.innerHTML = I.play;
+    if (this.wState === "playing") this.goExpanded();
   }
 
   private startPlaying(text?: string): void {
@@ -963,15 +1111,17 @@ class ReadFlowWidget {
     const wordCount = raw.split(/\s+/).length;
     this.totalSecs = Math.max(10, Math.round(wordCount / (this.speed * BASE_WPM) * 60));
 
-    this.goPlaying();
+    this.ttsActive = true;
+    this.playBtnEl.innerHTML = I.pause;
     this.startTimer();
+
+    // Only expand to playing view if already expanded; stay collapsed if collapsed
+    if (this.wState !== "collapsed") this.goPlaying();
 
     ttsSpeed = this.speed;
     voiceURI = this.activeVoiceURI;
-    startTTS(text, () => {
-      this.stopTimer();
-      this.goExpanded();
-    });
+    ttsLang  = detectTextLang(raw); // detect from actual content, not page UI lang
+    startTTS(text, () => this.onTTSDone());
   }
 
   private applySpeed(s: number): void {
@@ -985,11 +1135,12 @@ class ReadFlowWidget {
 
   private handleClose(): void {
     stopTTS();
+    this.ttsActive = false;
     this.stopTimer();
     this.elapsed = 0;
+    this.playBtnEl.innerHTML = I.play;
     this.wState = "collapsed";
     if (this.root) this.root.dataset.state = "collapsed";
-    this.playBtnEl.innerHTML = I.play;
     this.setPopup(null);
     this.hideWidget();
   }
