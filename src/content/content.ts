@@ -110,13 +110,15 @@ const SHADOW_CSS = `
 .close-btn {
   position: absolute; top: -8px; right: -8px; z-index: 20;
   width: 19px; height: 19px; border-radius: 50%;
-  background: var(--close-bg); border: 1px solid var(--close-border);
+  background: var(--pill-bg); border: 1px solid var(--border);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; color: var(--icon);
   opacity: 0; pointer-events: none;
-  transition: opacity .15s, background .15s, transform .15s;
+  transition: opacity .15s, background .15s, transform .15s, color .15s;
 }
-.close-btn:hover { background: #666; transform: scale(1.15); }
+.close-btn:hover  { background: var(--pill-bg-hover); color: var(--icon-hover); transform: scale(1.15); }
+.close-btn:active { background: rgba(59,158,255,0.13); color: ${ACCENT}; }
 /* close button: reveal on hover in all states, or always when panel is open */
 [data-state="collapsed"] .pill:hover .close-btn,
 [data-state="expanded"]  .pill:hover .close-btn,
