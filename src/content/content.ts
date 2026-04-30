@@ -120,7 +120,9 @@ const SHADOW_CSS = `
 /* X participates in the shared hover system — matches pill/panel when anything in root is hovered */
 .root:hover .close-btn { background: var(--pill-bg-hover); color: var(--icon-hover); }
 .close-btn:hover  { background: var(--pill-bg-hover); color: var(--icon-hover); transform: scale(1.15); }
-.close-btn:active { background: rgba(59,158,255,0.35); color: ${ACCENT}; }
+/* :active needs higher specificity (0,2,2) to beat .root:hover .close-btn (0,2,1) */
+.close-btn:active,
+.root:hover .close-btn:active { background: rgba(59,158,255,0.35); color: ${ACCENT}; }
 /* close button: reveal on hover in all states, or always when panel is open */
 [data-state="collapsed"] .pill:hover .close-btn,
 [data-state="expanded"]  .pill:hover .close-btn,
