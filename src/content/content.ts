@@ -17,7 +17,7 @@ type ThemeVars = {
 };
 
 const DARK: ThemeVars = {
-  bg: "#252528",       panelBg: "rgba(28,28,32,0.88)",
+  bg: "#252528",       panelBg: "rgba(37,37,40,0.92)",
   pillBg: "rgba(37,37,40,0.5)", pillBgHover: "rgba(37,37,40,0.8)",
   border: "rgba(255,255,255,0.08)",  divider: "rgba(255,255,255,0.08)",
   icon: "rgba(255,255,255,0.48)",    iconHover: "rgba(255,255,255,0.9)",
@@ -30,7 +30,7 @@ const DARK: ThemeVars = {
 };
 
 const LIGHT: ThemeVars = {
-  bg: "#dddde3",        panelBg: "rgba(230,230,236,0.90)",
+  bg: "#dddde3",        panelBg: "rgba(221,221,227,0.92)",
   pillBg: "rgba(221,221,227,0.5)", pillBgHover: "rgba(221,221,227,0.8)",
   border: "rgba(0,0,0,0.08)",        divider: "rgba(0,0,0,0.07)",
   icon: "rgba(0,0,0,0.42)",          iconHover: "rgba(0,0,0,0.85)",
@@ -54,9 +54,9 @@ const I = {
   // Single right-pointing chevron; CSS rotates it 180° in collapsed state
   chev:    `<svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2l4 4-4 4"/></svg>`,
   close:   `<svg width="7" height="7" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1 1l6 6M7 1L1 7"/></svg>`,
-  // Sentence navigation: hooked arrows (↩/↪ style — "jump back/forward one sentence")
-  stepBack: `<svg width="13" height="11" viewBox="0 0 14 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4H5Q3 4 3 6v2"/><polyline points="1,5.5 3,7.5 5,5.5"/></svg>`,
-  stepFwd:  `<svg width="13" height="11" viewBox="0 0 14 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h7q2 0 2 2v2"/><polyline points="9,5.5 11,7.5 13,5.5"/></svg>`,
+  // Sentence navigation: undo/redo-style arcs — clear at small sizes, conveys "step back/forward"
+  stepBack: `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 5.5h7a4 4 0 0 1 0 8"/><polyline points="1.5,3 3.5,5.5 1.5,8"/></svg>`,
+  stepFwd:  `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 5.5h-7a4 4 0 0 0 0 8"/><polyline points="14.5,3 12.5,5.5 14.5,8"/></svg>`,
 };
 
 /* ═══════════════════════════════════════════════════════════════════
