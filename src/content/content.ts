@@ -582,10 +582,28 @@ let nodeCache: { node: Text; start: number }[] = [];
 let fullText = "";
 let sentencePos = -1; // start of current sentence in fullText (for word offsets)
 
+/** Returns the same root element used by extractText() so the node cache
+ *  is scoped to content only — avoids false indexOf() hits in Gmail's email
+ *  preview list, ChatGPT UI chrome, etc. */
+function getHighlightRoot(): Element {
+  // Gmail: scope to the email body container
+  if (location.hostname.includes("mail.google.com")) {
+    return document.querySelector(".ii.gt") ?? document.body;
+  }
+  // Conversation SPAs: scope to the common parent of the article/section elements
+  const articles = document.querySelectorAll("article");
+  if (articles.length >= 2 && articles[0].parentElement) return articles[0].parentElement;
+  const sections = Array.from(document.querySelectorAll("section"))
+    .filter(el => el.textContent && el.textContent.trim().length > 80);
+  if (sections.length >= 2 && sections[0].parentElement) return sections[0].parentElement;
+  return document.body;
+}
+
 function buildNodeCache(): void {
+  const root = getHighlightRoot();
   nodeCache = [];
   let pos = 0;
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   let n: Text | null;
   while ((n = walker.nextNode() as Text | null)) {
     const len = n.textContent?.length ?? 0;
@@ -614,9 +632,28 @@ function rangeAt(start: number, end: number): Range | null {
 function scrollRangeIntoView(range: Range): void {
   try {
     const rect = range.getBoundingClientRect();
-    const margin = 100; // px — don't scroll if sentence is already in comfortable view
-    if (rect.top >= margin && rect.bottom <= window.innerHeight - margin) return;
-    window.scrollTo({ top: window.scrollY + rect.top - window.innerHeight / 2 + rect.height / 2, behavior: "smooth" });
+    if (!rect.width && !rect.height) return; // invisible / not rendered
+
+    // Walk up to find the actual scrollable container (Gmail uses its own pane, not window)
+    let scroller: Element | null = (range.startContainer as Node).parentElement;
+    while (scroller && scroller !== document.documentElement) {
+      const st = window.getComputedStyle(scroller);
+      if (/auto|scroll/.test(st.overflow + st.overflowY) && scroller.scrollHeight > scroller.clientHeight) break;
+      scroller = scroller.parentElement;
+    }
+
+    const margin = 100;
+    if (scroller && scroller !== document.documentElement) {
+      // Scroll the container pane (e.g. Gmail reading pane)
+      const cr = scroller.getBoundingClientRect();
+      const relTop = rect.top - cr.top;
+      if (relTop >= margin && rect.bottom - cr.top <= cr.height - margin) return;
+      scroller.scrollTo({ top: scroller.scrollTop + relTop - cr.height / 2 + rect.height / 2, behavior: "smooth" });
+    } else {
+      // Scroll the window
+      if (rect.top >= margin && rect.bottom <= window.innerHeight - margin) return;
+      window.scrollTo({ top: window.scrollY + rect.top - window.innerHeight / 2 + rect.height / 2, behavior: "smooth" });
+    }
   } catch { /* stale range */ }
 }
 
