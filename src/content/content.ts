@@ -397,14 +397,21 @@ const SHADOW_CSS = `
 /* ═══════════════════════════════════════════════════════════════════
    TTS ENGINE
 ═══════════════════════════════════════════════════════════════════ */
+// ── CSS Custom Highlight API (Chrome 105+, always available at our target Chrome 112) ──
+const HL_SENTENCE = "readflow-sentence";
+const HL_WORD     = "readflow-word";
+const useHighlightAPI = typeof CSS !== "undefined" && "highlights" in CSS;
+
 const highlightStyle = document.createElement("style");
-highlightStyle.textContent = ".readflow-highlight{background:#ffe066;border-radius:2px;}";
+highlightStyle.textContent = useHighlightAPI
+  ? `::highlight(${HL_SENTENCE}){background-color:rgba(255,220,80,0.45);color:inherit;}
+     ::highlight(${HL_WORD}){background-color:rgba(255,140,0,0.65);color:inherit;}`
+  : `.readflow-highlight{background:#ffe066;border-radius:2px;}`;
 document.head.appendChild(highlightStyle);
 
 let sentences: string[] = [];
 let currentIndex = 0;
 let isPaused = false;
-let currentMark: HTMLElement | null = null;
 let voiceURI = "";
 let ttsSpeed = 1.0;
 let ttsLang  = "";
@@ -569,27 +576,86 @@ function splitSentences(text: string): string[] {
   return result;
 }
 
+// ── Text-node cache for CSS Highlight API ─────────────────────────────────
+// Rebuilt once per TTS session; reused for every sentence + word highlight.
+let nodeCache: { node: Text; start: number }[] = [];
+let fullText = "";
+let sentencePos = -1; // start of current sentence in fullText (for word offsets)
+
+function buildNodeCache(): void {
+  nodeCache = [];
+  let pos = 0;
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  let n: Text | null;
+  while ((n = walker.nextNode() as Text | null)) {
+    const len = n.textContent?.length ?? 0;
+    if (len) nodeCache.push({ node: n, start: pos });
+    pos += len;
+  }
+  fullText = nodeCache.map(e => e.node.textContent ?? "").join("");
+}
+
+function rangeAt(start: number, end: number): Range | null {
+  let sNode: Text | null = null, sOff = 0, eNode: Text | null = null, eOff = 0;
+  for (const { node, start: ns } of nodeCache) {
+    const ne = ns + (node.textContent?.length ?? 0);
+    if (!sNode && ne > start) { sNode = node; sOff = start - ns; }
+    if (!eNode && ne >= end)  { eNode = node; eOff = end   - ns; break; }
+  }
+  if (!sNode || !eNode) return null;
+  try {
+    const r = document.createRange();
+    r.setStart(sNode, Math.max(0, sOff));
+    r.setEnd(eNode, Math.min(eNode.textContent?.length ?? 0, eOff));
+    return r;
+  } catch { return null; }
+}
+
+function scrollRangeIntoView(range: Range): void {
+  try {
+    const rect = range.getBoundingClientRect();
+    const margin = 100; // px — don't scroll if sentence is already in comfortable view
+    if (rect.top >= margin && rect.bottom <= window.innerHeight - margin) return;
+    window.scrollTo({ top: window.scrollY + rect.top - window.innerHeight / 2 + rect.height / 2, behavior: "smooth" });
+  } catch { /* stale range */ }
+}
+
 function removeHighlight(): void {
-  if (!currentMark) return;
-  const p = currentMark.parentNode;
-  if (p) { p.replaceChild(document.createTextNode(currentMark.textContent ?? ""), currentMark); p.normalize(); }
-  currentMark = null;
+  sentencePos = -1;
+  if (useHighlightAPI) {
+    CSS.highlights.delete(HL_SENTENCE);
+    CSS.highlights.delete(HL_WORD);
+  }
 }
 
 function highlightSentence(sentence: string): void {
   removeHighlight();
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-  let node: Text | null;
-  while ((node = walker.nextNode() as Text | null)) {
-    const idx = node.textContent?.indexOf(sentence) ?? -1;
-    if (idx === -1) continue;
-    const range = document.createRange();
-    range.setStart(node, idx); range.setEnd(node, idx + sentence.length);
-    const mark = document.createElement("mark");
-    mark.className = "readflow-highlight";
-    try { range.surroundContents(mark); currentMark = mark; mark.scrollIntoView({ behavior: "smooth", block: "center" }); }
-    catch (_) { /* boundary crossing */ }
-    return;
+  if (!sentence.trim()) return;
+
+  if (useHighlightAPI) {
+    const idx = fullText.indexOf(sentence);
+    if (idx < 0) return;
+    sentencePos = idx;
+    const range = rangeAt(idx, idx + sentence.length);
+    if (!range) return;
+    CSS.highlights.set(HL_SENTENCE, new Highlight(range));
+    scrollRangeIntoView(range);
+  }
+  // Fallback: old DOM-wrapping approach (kept for environments without Highlight API)
+  else {
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    let node: Text | null;
+    while ((node = walker.nextNode() as Text | null)) {
+      const idx = node.textContent?.indexOf(sentence) ?? -1;
+      if (idx < 0) continue;
+      const r = document.createRange();
+      r.setStart(node, idx); r.setEnd(node, idx + sentence.length);
+      const mark = document.createElement("mark");
+      mark.className = "readflow-highlight";
+      try { r.surroundContents(mark); mark.scrollIntoView({ behavior: "smooth", block: "center" }); }
+      catch { /* boundary crossing — mark not inserted */ }
+      return;
+    }
   }
 }
 
@@ -616,6 +682,16 @@ function speakFrom(index: number, onDone?: () => void): void {
     const auto = candidates.find(vv => vv.default) ?? candidates[0];
     if (auto) utt.voice = auto;
     else utt.lang = ttsLang;
+  }
+  // Word highlighting — fires at each word boundary if the voice supports it
+  if (useHighlightAPI) {
+    utt.onboundary = (e: SpeechSynthesisEvent) => {
+      if (e.name !== "word" || sentencePos < 0 || ttsGeneration !== gen) return;
+      const charLen = (e as SpeechSynthesisEvent & { charLength?: number }).charLength
+                   ?? sentence.slice(e.charIndex).match(/^\S+/)?.[0]?.length ?? 1;
+      const range = rangeAt(sentencePos + e.charIndex, sentencePos + e.charIndex + charLen);
+      if (range) CSS.highlights.set(HL_WORD, new Highlight(range));
+    };
   }
   utt.onend = () => {
     removeHighlight();
@@ -646,6 +722,7 @@ function startTTS(text?: string, onDone?: () => void): void {
   const raw = text ?? extractText();
   pageFingerprint = text ? "" : raw.slice(0, 120);
   sentences = splitSentences(raw);
+  buildNodeCache(); // cache text nodes for CSS Highlight API sentence+word lookup
   realElapsedBase = 0; realSentenceDurations = [];
   const wps = Math.max(0.1, ttsSpeed * BASE_WPM / 60);
   calculatedTotalSecs = sentences.reduce((s, sent) => s + sent.split(/\s+/).length / wps, 0);
@@ -658,6 +735,7 @@ function stopTTS(): void {
   isPaused = false; speechSynthesis.cancel(); removeHighlight();
   sentences = []; currentIndex = 0; sentenceStartTime = 0;
   realElapsedBase = 0; calculatedTotalSecs = 0; realSentenceDurations = [];
+  nodeCache = []; fullText = "";
 }
 
 function pauseTTS(): void {
@@ -677,6 +755,7 @@ function resumeTTS(onDone?: () => void): void {
       pageFingerprint = current.slice(0, 120);
       ttsLang = detectTextLang(current);
       sentences = splitSentences(current);
+      buildNodeCache(); // content changed (e.g. translated) — rebuild node cache
       currentIndex = 0;
       isPaused = false;
       speakFrom(0, onDone);
