@@ -57,6 +57,9 @@ const I = {
   // Sentence navigation: undo/redo-style arcs — arrowhead at the arc's start, pointing in travel direction
   stepBack: `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 5.5h7a4 4 0 0 1 0 8"/><polyline points="5.5,3 3.5,5.5 5.5,8"/></svg>`,
   stepFwd:  `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 5.5h-7a4 4 0 0 0 0 8"/><polyline points="10.5,3 12.5,5.5 10.5,8"/></svg>`,
+  // Voice pin: star outline (unpinned) / filled (pinned)
+  starOut: `<svg width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><path d="M7 1l1.5 4 4.5.7-3.3 3.1.8 4.7L7 11.5l-3.5 1.9.8-4.7L1 5.7 5.5 5z"/></svg>`,
+  star:    `<svg width="11" height="11" viewBox="0 0 14 14" fill="currentColor"><path d="M7 1l1.5 4 4.5.7-3.3 3.1.8 4.7L7 11.5l-3.5 1.9.8-4.7L1 5.7 5.5 5z"/></svg>`,
 };
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -359,6 +362,24 @@ const SHADOW_CSS = `
 .voice-item.active .voice-name { font-weight: 600; color: var(--text); }
 .voice-hint   { font-size: 10px; color: var(--subtext); margin-top: 1px; }
 .voice-accent { margin-left: auto; width: 6px; height: 6px; border-radius: 50%; background: ${ACCENT}; }
+.pin-btn {
+  width: 22px; height: 22px; border-radius: 50%; border: none; background: none;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; color: var(--subtext); opacity: 0;
+  transition: color .12s, background .12s, opacity .12s;
+}
+.voice-item:hover .pin-btn { opacity: 1; }
+.pin-btn.pinned { opacity: 1; color: ${ACCENT}; }
+.pin-btn:hover { background: var(--chip-bg-hover); color: var(--icon-hover); }
+.pin-btn.pinned:hover { color: ${ACCENT}; }
+.voice-divider { height: 1px; background: var(--divider); margin: 4px 8px; }
+.show-more-btn {
+  width: 100%; padding: 5px 10px; border: none; background: none; cursor: pointer;
+  font-family: inherit; font-size: 11px; color: var(--subtext);
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  border-radius: 8px; transition: color .12s, background .12s;
+}
+.show-more-btn:hover { color: var(--icon-hover); background: var(--chip-bg); }
 
 /* ── settings panel ── */
 .settings-panel { padding: 12px 14px; min-width: 180px; }
@@ -705,8 +726,9 @@ class ReadFlowWidget {
   private hasDragged = false;
   private saveDebounce: ReturnType<typeof setTimeout> | null = null;
   private lastTrigger: HTMLElement | undefined;
-  // Speed panel element refs — updated in-place to avoid popIn blink on each step
   private spRefs: { hdrVal: HTMLElement; hdrWpm: HTMLElement; fill: HTMLElement; handle: HTMLElement; labels: HTMLButtonElement[] } | null = null;
+  private pinnedVoices: string[] = [];
+  private voiceListExpanded = false;
 
   constructor() {
     // Remove any orphaned host left by a previous extension load (reload / re-install)
@@ -777,12 +799,13 @@ class ReadFlowWidget {
   private async loadSettings(): Promise<void> {
     return new Promise(resolve => {
       chrome.storage.local.get(
-        ["selectedVoiceURI", "speed", "themeChoice", "panelRight", "panelTop"],
+        ["selectedVoiceURI", "speed", "themeChoice", "panelRight", "panelTop", "pinnedVoices"],
         r => {
           if (typeof r.speed === "number" && SPEED_STOPS.includes(r.speed)) this.speed = r.speed;
           if (typeof r.selectedVoiceURI === "string") this.activeVoiceURI = r.selectedVoiceURI;
           if (r.themeChoice === "dark" || r.themeChoice === "light" || r.themeChoice === "system")
             this.themeChoice = r.themeChoice;
+          if (Array.isArray(r.pinnedVoices)) this.pinnedVoices = r.pinnedVoices;
           if (typeof r.panelRight === "number" && typeof r.panelTop === "number") {
             this.host.style.bottom = ""; this.host.style.left = "";
             this.host.style.right  = `${r.panelRight}px`;
@@ -802,6 +825,7 @@ class ReadFlowWidget {
       selectedVoiceURI: this.activeVoiceURI,
       speed: this.speed,
       themeChoice: this.themeChoice,
+      pinnedVoices: this.pinnedVoices,
     });
   }
 
@@ -1172,65 +1196,90 @@ class ReadFlowWidget {
     hdr.appendChild(hdrClose);
     wrap.appendChild(hdr);
 
-    const voices = this.getRelevantVoices();
-
-    type VoiceEntry = { uri: string; name: string; hint: string };
-    const entries: VoiceEntry[] = [
-      { uri: "", name: "Default", hint: "Browser default" },
-      ...voices.filter(v => v.voiceURI).map(v => ({   // skip any voice with empty voiceURI — would duplicate Default
-        uri:  v.voiceURI,
-        name: v.name.replace(/^Microsoft\s+/i, "").replace(/\s+Desktop.*$/i, ""),
-        hint: v.lang,
-      })),
-    ];
+    const allVoices = this.getRelevantVoices().filter(v => v.voiceURI);
+    const pinnedSet = new Set(this.pinnedVoices);
+    const pinned   = allVoices.filter(v =>  pinnedSet.has(v.voiceURI));
+    const unpinned = allVoices.filter(v => !pinnedSet.has(v.voiceURI));
+    const hasPinned = pinned.length > 0;
 
     const list = document.createElement("div");
     list.className = "voice-list";
 
-    if (voices.length === 0) {
+    const fmt = (v: SpeechSynthesisVoice) =>
+      v.name.replace(/^Microsoft\s+/i, "").replace(/\s+Desktop.*$/i, "");
+
+    const makeItem = (uri: string, name: string, hint: string, isPinned: boolean): HTMLElement => {
+      const active = this.activeVoiceURI === uri;
+      const item = document.createElement("div");
+      item.className = `voice-item${active ? " active" : ""}`;
+
+      const avatar = document.createElement("div"); avatar.className = "voice-avatar"; avatar.innerHTML = I.person;
+      const textDiv = document.createElement("div"); textDiv.style.flex = "1";
+      const nameEl = document.createElement("div"); nameEl.className = "voice-name"; nameEl.textContent = name;
+      const hintEl = document.createElement("div"); hintEl.className = "voice-hint"; hintEl.textContent = hint;
+      textDiv.appendChild(nameEl); textDiv.appendChild(hintEl);
+      item.appendChild(avatar); item.appendChild(textDiv);
+
+      if (active) { const ac = document.createElement("div"); ac.className = "voice-accent"; item.appendChild(ac); }
+
+      if (uri) {
+        const pinBtn = document.createElement("button");
+        pinBtn.className = `pin-btn${isPinned ? " pinned" : ""}`;
+        pinBtn.title = isPinned ? "Unpin" : "Pin to top";
+        pinBtn.innerHTML = isPinned ? I.star : I.starOut;
+        pinBtn.addEventListener("click", e => { e.stopPropagation(); this.togglePinVoice(uri); });
+        item.appendChild(pinBtn);
+      }
+
+      item.addEventListener("click", () => {
+        this.activeVoiceURI = uri; voiceURI = uri;
+        this.saveSettings(); this.setPopup(null);
+      });
+      return item;
+    };
+
+    // Default is always first, never pinnable
+    list.appendChild(makeItem("", "Default", "Browser default", false));
+
+    // Pinned voices immediately below Default
+    pinned.forEach(v => list.appendChild(makeItem(v.voiceURI, fmt(v), v.lang, true)));
+
+    if (allVoices.length === 0) {
       const loading = document.createElement("div");
       loading.style.cssText = "padding:6px 10px 10px;font-size:12px;color:var(--subtext);";
       loading.textContent = "Loading voices…";
       list.appendChild(loading);
-    }
+    } else if (unpinned.length > 0) {
+      if (hasPinned) list.appendChild(Object.assign(document.createElement("div"), { className: "voice-divider" }));
 
-    entries.forEach(entry => {
-      const active = this.activeVoiceURI === entry.uri;
-      const item = document.createElement("div");
-      item.className = `voice-item${active ? " active" : ""}`;
-
-      const avatar = document.createElement("div");
-      avatar.className = "voice-avatar";
-      avatar.innerHTML = I.person;
-
-      const textDiv = document.createElement("div");
-      textDiv.style.flex = "1";
-      const nameEl = document.createElement("div");
-      nameEl.className = "voice-name";
-      nameEl.textContent = entry.name;
-      const hintEl = document.createElement("div");
-      hintEl.className = "voice-hint";
-      hintEl.textContent = entry.hint;
-      textDiv.appendChild(nameEl);
-      textDiv.appendChild(hintEl);
-
-      item.appendChild(avatar);
-      item.appendChild(textDiv);
-      if (active) {
-        const accent = document.createElement("div");
-        accent.className = "voice-accent";
-        item.appendChild(accent);
+      if (hasPinned && !this.voiceListExpanded) {
+        const btn = document.createElement("button");
+        btn.className = "show-more-btn";
+        btn.textContent = `Show ${unpinned.length} more ▾`;
+        btn.addEventListener("click", () => { this.voiceListExpanded = true; this.setPopup("voice"); });
+        list.appendChild(btn);
+      } else {
+        unpinned.forEach(v => list.appendChild(makeItem(v.voiceURI, fmt(v), v.lang, false)));
+        if (hasPinned) {
+          const btn = document.createElement("button");
+          btn.className = "show-more-btn";
+          btn.textContent = "Show less ▴";
+          btn.addEventListener("click", () => { this.voiceListExpanded = false; this.setPopup("voice"); });
+          list.appendChild(btn);
+        }
       }
-
-      item.addEventListener("click", () => {
-        this.activeVoiceURI = entry.uri; voiceURI = entry.uri;
-        this.saveSettings(); this.setPopup(null);
-      });
-      list.appendChild(item);
-    });
+    }
 
     wrap.appendChild(list);
     return wrap;
+  }
+
+  private togglePinVoice(uri: string): void {
+    const idx = this.pinnedVoices.indexOf(uri);
+    if (idx >= 0) this.pinnedVoices.splice(idx, 1);
+    else this.pinnedVoices.push(uri);
+    this.saveSettings();
+    if (this.popup === "voice") this.setPopup("voice");
   }
 
   private buildSettingsPanel(): HTMLElement {
