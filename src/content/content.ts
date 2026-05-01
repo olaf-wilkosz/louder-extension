@@ -1174,13 +1174,19 @@ class ReadFlowWidget {
     return navigator.language.split("-")[0].toLowerCase();
   }
 
-  /** Returns all installed voices sorted by relevance: system lang first, then alphabetically. */
+  /** Returns all installed voices sorted by relevance: system lang first, then alphabetically.
+   *  Deduplicates by voiceURI — some Microsoft voices share the same URI, which would cause
+   *  multiple entries to appear pinned when only one was selected. */
   private getRelevantVoices(): SpeechSynthesisVoice[] {
     const sysLang = navigator.language.split("-")[0].toLowerCase();
     const sys   = voiceCache.filter(v =>  v.lang.toLowerCase().startsWith(sysLang));
     const other = voiceCache.filter(v => !v.lang.toLowerCase().startsWith(sysLang))
                             .sort((a, b) => a.lang.localeCompare(b.lang));
-    return [...sys, ...other];
+    const seen = new Set<string>();
+    return [...sys, ...other].filter(v => {
+      if (seen.has(v.voiceURI)) return false;
+      seen.add(v.voiceURI); return true;
+    });
   }
 
   private buildVoicePanel(): HTMLElement {
@@ -1219,8 +1225,6 @@ class ReadFlowWidget {
       const hintEl = document.createElement("div"); hintEl.className = "voice-hint"; hintEl.textContent = hint;
       textDiv.appendChild(nameEl); textDiv.appendChild(hintEl);
       item.appendChild(avatar); item.appendChild(textDiv);
-
-      if (active) { const ac = document.createElement("div"); ac.className = "voice-accent"; item.appendChild(ac); }
 
       if (uri) {
         const pinBtn = document.createElement("button");
