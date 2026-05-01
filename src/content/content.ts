@@ -110,20 +110,22 @@ const SHADOW_CSS = `
 .close-btn {
   position: absolute; top: -8px; right: -8px; z-index: 20;
   width: 19px; height: 19px; border-radius: 50%;
-  background: var(--pill-bg); border: 1px solid var(--border);
+  /* Stable pre-background: always pill-hover opacity so chip-bg-hover overlay works the
+     same as on icon buttons inside the pill — no longer depends on the page behind */
+  background-color: var(--pill-bg-hover);
+  background-image: none;
+  border: 1px solid var(--border);
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; color: var(--icon);
   opacity: 0; pointer-events: none;
-  transition: opacity .15s, background .15s, transform .15s, color .15s;
+  transition: opacity .15s, background-color .15s, background-image .15s, transform .15s, color .15s;
 }
-/* Shared hover: root hovered (pill, bridge, or panel) → X gets pill-hover bg */
-.root:hover .close-btn { background: var(--pill-bg-hover); color: var(--icon-hover); }
-/* Direct hover: same specificity (0,2,1) but placed later so source order wins;
-   layers chip-bg-hover ON TOP of pill-bg-hover for a visible brightening without
-   losing the dark glass base — chip-bg-hover alone over a light page looks washed-out */
-.root .close-btn:hover { background: var(--chip-bg-hover), var(--pill-bg-hover); color: var(--icon-hover); transform: scale(1.15); }
-/* Active: only the X icon flips to blue; background stays at whatever hover state applies */
+/* Shared hover: root hovered → icon brightens (background already at hover level) */
+.root:hover .close-btn { color: var(--icon-hover); }
+/* Direct hover: add chip overlay as background-image; background-color stays from base rule */
+.close-btn:hover { background-image: linear-gradient(var(--chip-bg-hover), var(--chip-bg-hover)); color: var(--icon-hover); transform: scale(1.15); }
+/* Active: X icon flips to blue */
 .close-btn:active,
 .root:hover .close-btn:active { color: ${ACCENT}; }
 /* close button: reveal on hover in all states, or always when panel is open */
