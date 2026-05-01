@@ -117,11 +117,13 @@ const SHADOW_CSS = `
   opacity: 0; pointer-events: none;
   transition: opacity .15s, background .15s, transform .15s, color .15s;
 }
-/* X badge uses the pill's glass hover system — chip-bg-hover is for inside-pill elements only;
-   against a blurred page backdrop it renders as a light/white overlay in dark mode */
+/* Shared hover: root hovered (pill, bridge, or panel) → X gets pill-hover bg */
 .root:hover .close-btn { background: var(--pill-bg-hover); color: var(--icon-hover); }
-.close-btn:hover  { background: var(--pill-bg-hover); color: var(--icon-hover); transform: scale(1.15); }
-/* Active: background stays at pill-hover level, only the X icon flips blue */
+/* Direct hover: same specificity (0,2,1) but placed later so source order wins;
+   layers chip-bg-hover ON TOP of pill-bg-hover for a visible brightening without
+   losing the dark glass base — chip-bg-hover alone over a light page looks washed-out */
+.root .close-btn:hover { background: var(--chip-bg-hover), var(--pill-bg-hover); color: var(--icon-hover); transform: scale(1.15); }
+/* Active: only the X icon flips to blue; background stays at whatever hover state applies */
 .close-btn:active,
 .root:hover .close-btn:active { color: ${ACCENT}; }
 /* close button: reveal on hover in all states, or always when panel is open */
