@@ -462,13 +462,28 @@ function calcElapsed(): number {
   return realElapsedBase + (Date.now() - sentenceStartTime) / 1000;
 }
 
-/** Returns innerText of an element after stripping decorative/non-content nodes
- *  (images, buttons, inputs, SVG) that innerText would include as alt/value text,
- *  creating phantom sentences that have no matching text nodes in the DOM. */
+/** Returns innerText with <img> alt texts stripped.
+ *  Alt texts appear in innerText but have no text nodes, so they break sentence
+ *  matching in the highlight cache. We avoid cloneNode — it triggers image load
+ *  requests (visible to ad blockers) even for detached elements. */
 function cleanInnerText(el: HTMLElement): string {
-  const clone = el.cloneNode(true) as HTMLElement;
-  clone.querySelectorAll("img, button, input, svg, [aria-hidden='true']").forEach(n => n.remove());
-  return clone.innerText.trim();
+  const text = el.innerText.trim();
+
+  // Collect img alt values from the live DOM (attribute reads, no network)
+  const alts = new Set<string>();
+  el.querySelectorAll("img[alt]").forEach(img => {
+    const alt = (img as HTMLImageElement).alt.trim();
+    if (alt) alts.add(alt);
+  });
+  if (alts.size === 0) return text;
+
+  // Remove each alt text when it appears as a standalone line
+  let result = text;
+  for (const alt of alts) {
+    const escaped = alt.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    result = result.replace(new RegExp(`^${escaped}\\s*$`, "gm"), "");
+  }
+  return result.replace(/\n{3,}/g, "\n\n").trim();
 }
 
 /** Extract email body text from Gmail's stable DOM containers.
