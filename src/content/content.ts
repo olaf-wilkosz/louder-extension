@@ -924,7 +924,7 @@ function speakFrom(index: number, onDone?: () => void): void {
       // Search from sentencePos in searchText — avoids charIndex drift when
       // sentence whitespace and fullText whitespace differ (e.g. <br> boundaries)
       const wi = searchText.indexOf(word, sentencePos);
-      if (wi < 0) return;
+      if (wi < 0) { CSS.highlights.delete(HL_WORD); return; } // emoji expansion or img-alt word — clear stale highlight
       const range = rangeAt(wi, wi + word.length);
       if (range) CSS.highlights.set(HL_WORD, new Highlight(range));
     };
