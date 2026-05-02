@@ -824,7 +824,15 @@ function speakFrom(index: number, onDone?: () => void): void {
   const gen = ttsGeneration; // capture — stale callbacks from old chains will differ
   highlightSentence(sentence);
 
-  const utt = new SpeechSynthesisUtterance(sentence);
+  // Strip emoji before passing to TTS — voices read Unicode names ("raised hand
+  // with fingers splayed") which is jarring. Original sentence is kept for
+  // highlightSentence() so DOM lookup still works.
+  const ttsText = sentence
+    .replace(/\p{Extended_Pictographic}/gu, "")
+    .replace(/[️‍⃣]/g, "") // variation selectors + combining enclosing keycap
+    .replace(/\s+/g, " ").trim() || sentence; // fallback if entire sentence was emoji
+
+  const utt = new SpeechSynthesisUtterance(ttsText);
   utt.rate = ttsSpeed;
   const v = getVoice();
   if (v) {
