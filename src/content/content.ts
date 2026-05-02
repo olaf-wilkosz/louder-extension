@@ -528,7 +528,15 @@ function extractText(): string {
   const convText = extractConversationText();
   if (convText) return convText;
 
-  // 3. Readability for article/blog pages — score before trusting it
+  // 3. HTML email / newsletter layout — <font> tags or 3+ levels of nested
+  //    tables are the hallmark of newsletter HTML. Readability strips button
+  //    text and small-font content from these layouts; go straight to our
+  //    node-walker which stays in sync with buildNodeCache().
+  const isEmailLayout = !!document.querySelector("font[face], font[color], font[size]")
+    || document.querySelectorAll("table table table").length >= 3;
+  if (isEmailLayout) return bodyTextFromNodes();
+
+  // 4. Readability for article/blog pages — score before trusting it
   try {
     const clone = document.cloneNode(true) as Document;
     const article = new Readability(clone).parse();
@@ -536,12 +544,12 @@ function extractText(): string {
     if (scoreExtraction(text, document.body.innerText.length) >= 0.8) return text;
   } catch (_) { /* fall through */ }
 
-  // 4. Semantic main content — better scoped than full body
+  // 5. Semantic main content — better scoped than full body
   const mainEl = document.querySelector<HTMLElement>("main, [role='main']");
   const mainText = mainEl?.innerText.trim() ?? "";
   if (mainText.length > 200) return mainText;
 
-  // 5. Raw fallback — walk text nodes directly (same as buildNodeCache) so
+  // 6. Raw fallback — walk text nodes directly (same as buildNodeCache) so
   //    alt attributes, <script>, and <style> content are never included,
   //    keeping extractText() in sync with the highlight node cache.
   return bodyTextFromNodes();
