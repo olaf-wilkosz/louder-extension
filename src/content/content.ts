@@ -569,7 +569,7 @@ function bodyTextFromNodes(): string {
   ]);
   const parts: string[] = [];
   let lastWasBlock = false;
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, visibleFilter);
   let node: Node | null;
   while ((node = walker.nextNode())) {
     if (node.nodeType === Node.ELEMENT_NODE) {
@@ -637,6 +637,20 @@ let collapsedText   = ""; // searchText with all \s+ → single space (for <br>/
 let collapsedPosMap: number[] = []; // collapsedText[i] → fullText position
 let sentencePos = -1; // start of current sentence in fullText (for word offsets)
 
+/** NodeFilter shared by buildNodeCache() and bodyTextFromNodes().
+ *  FILTER_REJECT on hidden elements prunes them AND all their children from
+ *  the walk — keeps both functions in sync with what the browser renders,
+ *  and prevents display:none preheader text from leaking into TTS or highlights. */
+const visibleFilter: NodeFilter = {
+  acceptNode(node: Node): number {
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const st = window.getComputedStyle(node as Element);
+      if (st.display === "none" || st.visibility === "hidden") return NodeFilter.FILTER_REJECT;
+    }
+    return NodeFilter.FILTER_ACCEPT;
+  }
+};
+
 /** Returns the same root element used by extractText() so the node cache
  *  is scoped to content only — avoids false indexOf() hits in Gmail's email
  *  preview list, ChatGPT UI chrome, etc. */
@@ -658,11 +672,17 @@ function buildNodeCache(): void {
   const root = getHighlightRoot();
   nodeCache = [];
   let pos = 0;
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  let n: Text | null;
-  while ((n = walker.nextNode() as Text | null)) {
-    const len = n.textContent?.length ?? 0;
-    if (len) nodeCache.push({ node: n, start: pos });
+  // SHOW_ELEMENT is required so visibleFilter can FILTER_REJECT hidden subtrees;
+  // element nodes themselves are skipped in the body below.
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, visibleFilter);
+  let n: Node | null;
+  while ((n = walker.nextNode())) {
+    if (n.nodeType !== Node.TEXT_NODE) continue; // element nodes visited only for filtering
+    const textNode = n as Text;
+    const parent = textNode.parentElement;
+    if (parent && (parent.tagName === "SCRIPT" || parent.tagName === "STYLE")) continue;
+    const len = textNode.textContent?.length ?? 0;
+    if (len) nodeCache.push({ node: textNode, start: pos });
     pos += len;
   }
   fullText   = nodeCache.map(e => e.node.textContent ?? "").join("");
