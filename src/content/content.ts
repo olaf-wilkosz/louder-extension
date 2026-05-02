@@ -462,6 +462,15 @@ function calcElapsed(): number {
   return realElapsedBase + (Date.now() - sentenceStartTime) / 1000;
 }
 
+/** Returns innerText of an element after stripping decorative/non-content nodes
+ *  (images, buttons, inputs, SVG) that innerText would include as alt/value text,
+ *  creating phantom sentences that have no matching text nodes in the DOM. */
+function cleanInnerText(el: HTMLElement): string {
+  const clone = el.cloneNode(true) as HTMLElement;
+  clone.querySelectorAll("img, button, input, svg, [aria-hidden='true']").forEach(n => n.remove());
+  return clone.innerText.trim();
+}
+
 /** Extract email body text from Gmail's stable DOM containers.
  *  Returns null if not on Gmail or no body found. */
 function extractGmailText(): string | null {
@@ -473,7 +482,7 @@ function extractGmailText(): string | null {
   if (!bodies.length) return null;
 
   const parts = Array.from(bodies)
-    .map(el => el.innerText.trim())
+    .map(el => cleanInnerText(el))
     .filter(t => t.length > 30);
 
   return parts.length ? parts.join("\n\n") : null;
@@ -499,7 +508,7 @@ function extractConversationText(): string | null {
   const articles = document.querySelectorAll<HTMLElement>("article");
   if (articles.length >= 2) {
     const parts = Array.from(articles)
-      .map(el => el.innerText.trim())
+      .map(el => cleanInnerText(el))
       .filter(t => t.length > 20);
     const joined = parts.join("\n\n");
     if (joined.length > 100) return joined;
@@ -511,7 +520,7 @@ function extractConversationText(): string | null {
   const sections = Array.from(document.querySelectorAll<HTMLElement>("section"))
     .filter(el => el.innerText.trim().length > 80);
   if (sections.length >= 2) {
-    const parts = sections.map(el => el.innerText.trim());
+    const parts = sections.map(el => cleanInnerText(el));
     const joined = parts.join("\n\n");
     if (joined.length > 100) return joined;
   }
@@ -538,11 +547,11 @@ function extractText(): string {
 
   // 4. Semantic main content — better scoped than full body
   const mainEl = document.querySelector<HTMLElement>("main, [role='main']");
-  const mainText = mainEl?.innerText.trim() ?? "";
+  const mainText = mainEl ? cleanInnerText(mainEl) : "";
   if (mainText.length > 200) return mainText;
 
   // 5. Raw fallback — always complete, sometimes noisy
-  return document.body.innerText.trim();
+  return cleanInnerText(document.body);
 }
 
 const MAX_WORDS_PER_CHUNK = 60;
