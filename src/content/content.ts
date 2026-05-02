@@ -462,30 +462,6 @@ function calcElapsed(): number {
   return realElapsedBase + (Date.now() - sentenceStartTime) / 1000;
 }
 
-/** Returns innerText with <img> alt texts stripped.
- *  Alt texts appear in innerText but have no text nodes, so they break sentence
- *  matching in the highlight cache. We avoid cloneNode — it triggers image load
- *  requests (visible to ad blockers) even for detached elements. */
-function cleanInnerText(el: HTMLElement): string {
-  const text = el.innerText.trim();
-
-  // Collect img alt values from the live DOM (attribute reads, no network)
-  const alts = new Set<string>();
-  el.querySelectorAll("img[alt]").forEach(img => {
-    const alt = (img as HTMLImageElement).alt.trim();
-    if (alt) alts.add(alt);
-  });
-  if (alts.size === 0) return text;
-
-  // Remove each alt text when it appears as a standalone line
-  let result = text;
-  for (const alt of alts) {
-    const escaped = alt.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    result = result.replace(new RegExp(`^${escaped}\\s*$`, "gm"), "");
-  }
-  return result.replace(/\n{3,}/g, "\n\n").trim();
-}
-
 /** Extract email body text from Gmail's stable DOM containers.
  *  Returns null if not on Gmail or no body found. */
 function extractGmailText(): string | null {
@@ -497,7 +473,7 @@ function extractGmailText(): string | null {
   if (!bodies.length) return null;
 
   const parts = Array.from(bodies)
-    .map(el => cleanInnerText(el))
+    .map(el => el.innerText.trim())
     .filter(t => t.length > 30);
 
   return parts.length ? parts.join("\n\n") : null;
@@ -523,7 +499,7 @@ function extractConversationText(): string | null {
   const articles = document.querySelectorAll<HTMLElement>("article");
   if (articles.length >= 2) {
     const parts = Array.from(articles)
-      .map(el => cleanInnerText(el))
+      .map(el => el.innerText.trim())
       .filter(t => t.length > 20);
     const joined = parts.join("\n\n");
     if (joined.length > 100) return joined;
@@ -535,7 +511,7 @@ function extractConversationText(): string | null {
   const sections = Array.from(document.querySelectorAll<HTMLElement>("section"))
     .filter(el => el.innerText.trim().length > 80);
   if (sections.length >= 2) {
-    const parts = sections.map(el => cleanInnerText(el));
+    const parts = sections.map(el => el.innerText.trim());
     const joined = parts.join("\n\n");
     if (joined.length > 100) return joined;
   }
@@ -562,11 +538,11 @@ function extractText(): string {
 
   // 4. Semantic main content — better scoped than full body
   const mainEl = document.querySelector<HTMLElement>("main, [role='main']");
-  const mainText = mainEl ? cleanInnerText(mainEl) : "";
+  const mainText = mainEl?.innerText.trim() ?? "";
   if (mainText.length > 200) return mainText;
 
   // 5. Raw fallback — always complete, sometimes noisy
-  return cleanInnerText(document.body);
+  return document.body.innerText.trim();
 }
 
 const MAX_WORDS_PER_CHUNK = 60;
@@ -603,8 +579,8 @@ function splitSentences(text: string): string[] {
 // ── Text-node cache for CSS Highlight API ─────────────────────────────────
 // Rebuilt once per TTS session; reused for every sentence + word highlight.
 let nodeCache: { node: Text; start: number }[] = [];
-let fullText   = ""; // raw concatenated text node content — positions match real DOM offsets
-let searchText = ""; // fullText with U+00A0 → space (same length, positions preserved)
+let fullText   = "";
+let searchText = ""; // fullText with U+00A0 → space (1-to-1, positions preserved)
 let sentencePos = -1; // start of current sentence in fullText (for word offsets)
 
 /** Returns the same root element used by extractText() so the node cache
@@ -635,20 +611,10 @@ function buildNodeCache(): void {
     if (len) nodeCache.push({ node: n, start: pos });
     pos += len;
   }
-  fullText   = nodeCache.map(e => e.node.textContent ?? "").join("");
-  // NBSP -> space: 1-to-1 swap so positions stay identical to fullText
+  fullText = nodeCache.map(e => e.node.textContent ?? "").join("");
+  // NBSP-normalised copy for matching: U+00A0 → U+0020, same length so
+  // positions map 1-to-1 back to fullText for rangeAt().
   searchText = fullText.replace(/ /g, " ");
-}
-
-/** Find sentence start/end positions in fullText.
- *  Tries exact match first, then NBSP-normalised. */
-function findSentenceRange(sentence: string): { start: number; end: number } | null {
-  let idx = fullText.indexOf(sentence);
-  if (idx >= 0) return { start: idx, end: idx + sentence.length };
-  const s = sentence.replace(/ /g, " ");
-  idx = searchText.indexOf(s);
-  if (idx >= 0) return { start: idx, end: idx + s.length };
-  return null;
 }
 
 function rangeAt(start: number, end: number): Range | null {
@@ -708,15 +674,23 @@ function highlightSentence(sentence: string): void {
   if (!sentence.trim()) return;
 
   if (useHighlightAPI) {
-    const result = findSentenceRange(sentence);
-    if (!result) return;
-    sentencePos = result.start;
-    const range = rangeAt(result.start, result.end);
+    // Try exact match, then NBSP-normalised (U+00A0 common in marketing emails)
+    let idx = fullText.indexOf(sentence);
+    let len = sentence.length;
+    if (idx < 0) {
+      const s = sentence.replace(/ /g, " ");
+      idx = searchText.indexOf(s);
+      len = s.length;
+    }
+    if (idx < 0) return;
+    sentencePos = idx;
+    const range = rangeAt(idx, idx + len);
     if (!range) return;
     CSS.highlights.set(HL_SENTENCE, new Highlight(range));
     scrollRangeIntoView(range);
-  } else {
-    // Fallback: old DOM-wrapping (kept for environments without Highlight API)
+  }
+  // Fallback: old DOM-wrapping approach (kept for environments without Highlight API)
+  else {
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     let node: Text | null;
     while ((node = walker.nextNode() as Text | null)) {
@@ -727,7 +701,7 @@ function highlightSentence(sentence: string): void {
       const mark = document.createElement("mark");
       mark.className = "readflow-highlight";
       try { r.surroundContents(mark); mark.scrollIntoView({ behavior: "smooth", block: "center" }); }
-      catch { /* boundary crossing */ }
+      catch { /* boundary crossing — mark not inserted */ }
       return;
     }
   }
@@ -763,13 +737,7 @@ function speakFrom(index: number, onDone?: () => void): void {
       if (e.name !== "word" || sentencePos < 0 || ttsGeneration !== gen) return;
       const charLen = (e as SpeechSynthesisEvent & { charLength?: number }).charLength
                    ?? sentence.slice(e.charIndex).match(/^\S+/)?.[0]?.length ?? 1;
-      const word = sentence.slice(e.charIndex, e.charIndex + charLen)
-                           .replace(/ /g, " ").trim();
-      if (!word) return;
-      // Search for word from sentence start in searchText, bypassing whitespace offsets
-      const wi = searchText.indexOf(word, sentencePos);
-      if (wi < 0) return;
-      const range = rangeAt(wi, wi + word.length);
+      const range = rangeAt(sentencePos + e.charIndex, sentencePos + e.charIndex + charLen);
       if (range) CSS.highlights.set(HL_WORD, new Highlight(range));
     };
   }
@@ -815,7 +783,7 @@ function stopTTS(): void {
   isPaused = false; speechSynthesis.cancel(); removeHighlight();
   sentences = []; currentIndex = 0; sentenceStartTime = 0;
   realElapsedBase = 0; calculatedTotalSecs = 0; realSentenceDurations = [];
-  nodeCache = []; fullText = ""; searchText = ""; collapsedText = ""; collapsedPosMap = [];
+  nodeCache = []; fullText = ""; searchText = "";
 }
 
 function pauseTTS(): void {
