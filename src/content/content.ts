@@ -653,30 +653,37 @@ function bodyTextFromNodes(): string {
 const MAX_WORDS_PER_CHUNK = 60;
 
 function splitSentences(text: string): string[] {
-  // Primary split on sentence-ending punctuation
-  const primary = text.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(s => s.length > 0);
+  // Step 0: split on double+ newlines (block section / paragraph boundaries)
+  // first, so content from different email sections / paragraphs never gets
+  // merged into one utterance. Single \n (e.g. from <br>) stays within a chunk.
+  const sections = text.split(/\n{2,}/).map(s => s.trim()).filter(s => s.length > 0);
 
-  // Secondary split: break chunks longer than MAX_WORDS_PER_CHUNK at
-  // commas/semicolons/colons/newlines so a block of numbers or code
-  // doesn't create a single utterance lasting minutes.
   const result: string[] = [];
-  for (const chunk of primary) {
-    if (chunk.split(/\s+/).length <= MAX_WORDS_PER_CHUNK) {
-      result.push(chunk);
-      continue;
-    }
-    const sub = chunk.split(/(?<=[,;:\n])\s+/).map(s => s.trim()).filter(s => s.length > 0);
-    let current = "";
-    for (const piece of sub) {
-      const candidate = current ? `${current} ${piece}` : piece;
-      if (candidate.split(/\s+/).length > MAX_WORDS_PER_CHUNK && current) {
-        result.push(current);
-        current = piece;
-      } else {
-        current = candidate;
+  for (const section of sections) {
+    // Primary split on sentence-ending punctuation within each section
+    const primary = section.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(s => s.length > 0);
+
+    // Secondary split: break chunks longer than MAX_WORDS_PER_CHUNK at
+    // commas/semicolons/colons/newlines so a block of numbers or code
+    // doesn't create a single utterance lasting minutes.
+    for (const chunk of primary) {
+      if (chunk.split(/\s+/).length <= MAX_WORDS_PER_CHUNK) {
+        result.push(chunk);
+        continue;
       }
+      const sub = chunk.split(/(?<=[,;:\n])\s+/).map(s => s.trim()).filter(s => s.length > 0);
+      let current = "";
+      for (const piece of sub) {
+        const candidate = current ? `${current} ${piece}` : piece;
+        if (candidate.split(/\s+/).length > MAX_WORDS_PER_CHUNK && current) {
+          result.push(current);
+          current = piece;
+        } else {
+          current = candidate;
+        }
+      }
+      if (current) result.push(current);
     }
-    if (current) result.push(current);
   }
   return result;
 }
