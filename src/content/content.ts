@@ -462,6 +462,59 @@ function calcElapsed(): number {
   return realElapsedBase + (Date.now() - sentenceStartTime) / 1000;
 }
 
+/** Walk a Gmail .ii.gt body element and return its text, including emoji
+ *  characters that Gmail converts to <img> elements (innerText misses those). */
+function gmailBodyText(root: HTMLElement): string {
+  // innerText gives us the rendered text respecting CSS, block boundaries, etc.
+  // We then patch in any emoji that Gmail rendered as <img alt="🖐️" ...>.
+  // Strategy: build a parallel walker result that inserts img alt values for
+  // images whose alt contains emoji, then merge with the innerText positions.
+  // Simpler alternative that works well in practice: replace each emoji <img>
+  // placeholder in innerText with the alt value. Gmail's innerText leaves a
+  // space or nothing where the image was, so we can't rely on position —
+  // instead we rebuild text via a TreeWalker (same as bodyTextFromNodes) and
+  // include img emoji alt inline.
+  const BLOCK = new Set([
+    "P","DIV","BR","LI","TR","TD","TH","H1","H2","H3","H4","H5","H6",
+    "BLOCKQUOTE","PRE","TABLE","THEAD","TBODY","TFOOT","CAPTION",
+    "ARTICLE","SECTION","HEADER","FOOTER","MAIN",
+  ]);
+  const parts: string[] = [];
+  let lastWasBlock = false;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, visibleFilter);
+  let node: Node | null;
+  while ((node = walker.nextNode())) {
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const el = node as Element;
+      if (BLOCK.has(el.tagName)) {
+        if (!lastWasBlock && parts.length) parts.push("\n");
+        lastWasBlock = true;
+      }
+      // Gmail renders email emoji as <img> — capture only emoji alt text
+      if (el.tagName === "IMG") {
+        const alt = (el as HTMLImageElement).alt ?? "";
+        if (alt && /\p{Extended_Pictographic}/u.test(alt)) {
+          parts.push(alt);
+          lastWasBlock = false;
+        }
+      }
+    } else {
+      const parent = (node as Text).parentElement;
+      if (parent && (parent.tagName === "SCRIPT" || parent.tagName === "STYLE")) continue;
+      const t = (node as Text).textContent ?? "";
+      const collapsed = t.replace(/\s+/g, " ");
+      if (!collapsed.trim()) {
+        if (lastWasBlock) continue;
+        parts.push(collapsed);
+      } else {
+        parts.push(t);
+        lastWasBlock = false;
+      }
+    }
+  }
+  return parts.join("").replace(/\n{3,}/g, "\n\n").trim();
+}
+
 /** Extract email body text from Gmail's stable DOM containers.
  *  Returns null if not on Gmail or no body found. */
 function extractGmailText(): string | null {
@@ -473,7 +526,7 @@ function extractGmailText(): string | null {
   if (!bodies.length) return null;
 
   const parts = Array.from(bodies)
-    .map(el => el.innerText.trim())
+    .map(el => gmailBodyText(el))
     .filter(t => t.length > 30);
 
   return parts.length ? parts.join("\n\n") : null;
@@ -718,14 +771,28 @@ function findSentenceRange(sentence: string): { start: number; end: number } | n
   // Tier 2 — collapse all whitespace and search collapsed text
   const sc = s.replace(/\s+/g, " ").trim();
   const ci = collapsedText.indexOf(sc);
-  if (ci < 0) return null;
+  if (ci >= 0) {
+    start = collapsedPosMap[ci];
+    const endCollapsed = ci + sc.length - 1;
+    const end = endCollapsed < collapsedPosMap.length
+      ? collapsedPosMap[endCollapsed] + 1
+      : fullText.length;
+    return { start, end };
+  }
 
-  start = collapsedPosMap[ci];
-  const endCollapsed = ci + sc.length - 1;
-  const end = endCollapsed < collapsedPosMap.length
-    ? collapsedPosMap[endCollapsed] + 1
+  // Tier 3 — strip emoji from search term: handles Gmail where emoji are
+  // rendered as <img> (captured in extraction from alt text) but have no
+  // corresponding text node in the DOM for the highlight to land on.
+  const se = sc.replace(/\p{Extended_Pictographic}/gu, "").replace(/\s+/g, " ").trim();
+  if (!se || se === sc) return null; // no emoji present — already failed above
+  const ci3 = collapsedText.indexOf(se);
+  if (ci3 < 0) return null;
+  start = collapsedPosMap[ci3];
+  const endC3 = ci3 + se.length - 1;
+  const end3 = endC3 < collapsedPosMap.length
+    ? collapsedPosMap[endC3] + 1
     : fullText.length;
-  return { start, end };
+  return { start, end: end3 };
 }
 
 function rangeAt(start: number, end: number): Range | null {
@@ -824,15 +891,7 @@ function speakFrom(index: number, onDone?: () => void): void {
   const gen = ttsGeneration; // capture — stale callbacks from old chains will differ
   highlightSentence(sentence);
 
-  // Strip emoji before passing to TTS — voices read Unicode names ("raised hand
-  // with fingers splayed") which is jarring. Original sentence is kept for
-  // highlightSentence() so DOM lookup still works.
-  const ttsText = sentence
-    .replace(/\p{Extended_Pictographic}/gu, "")
-    .replace(/[️‍⃣]/g, "") // variation selectors + combining enclosing keycap
-    .replace(/\s+/g, " ").trim() || sentence; // fallback if entire sentence was emoji
-
-  const utt = new SpeechSynthesisUtterance(ttsText);
+  const utt = new SpeechSynthesisUtterance(sentence);
   utt.rate = ttsSpeed;
   const v = getVoice();
   if (v) {
