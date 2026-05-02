@@ -604,9 +604,7 @@ function splitSentences(text: string): string[] {
 // Rebuilt once per TTS session; reused for every sentence + word highlight.
 let nodeCache: { node: Text; start: number }[] = [];
 let fullText   = ""; // raw concatenated text node content — positions match real DOM offsets
-let searchText = ""; // fullText with U+00A0 → U+0020 (same length, positions preserved)
-let collapsedText   = ""; // searchText with all \s+ → single space (for <br>/<p> mismatch)
-let collapsedPosMap: number[] = []; // collapsedText[i] → fullText position
+let searchText = ""; // fullText with U+00A0 → space (same length, positions preserved)
 let sentencePos = -1; // start of current sentence in fullText (for word offsets)
 
 /** Returns the same root element used by extractText() so the node cache
@@ -638,46 +636,19 @@ function buildNodeCache(): void {
     pos += len;
   }
   fullText   = nodeCache.map(e => e.node.textContent ?? "").join("");
-  // NBSP-normalised — same positions as fullText (U+00A0 → U+0020, 1-to-1 swap)
+  // NBSP -> space: 1-to-1 swap so positions stay identical to fullText
   searchText = fullText.replace(/ /g, " ");
-  // Whitespace-collapsed — for matching sentences where <br>/<p> gaps cause missing whitespace
-  collapsedText   = "";
-  collapsedPosMap = [];
-  let inWS = false;
-  for (let i = 0; i < searchText.length; i++) {
-    if (/\s/.test(searchText[i])) {
-      if (!inWS) { collapsedPosMap.push(i); collapsedText += " "; }
-      inWS = true;
-    } else {
-      collapsedPosMap.push(i); collapsedText += searchText[i];
-      inWS = false;
-    }
-  }
 }
 
-/** Three-tier sentence search returning { start, end } positions in fullText,
- *  or null if not found.
- *  Tier 1: exact match in searchText (NBSP already normalised).
- *  Tier 2: whitespace-collapsed match — handles <br> / <p> boundaries that
- *           innerText renders as \n but raw text nodes have nothing. */
+/** Find sentence start/end positions in fullText.
+ *  Tries exact match first, then NBSP-normalised. */
 function findSentenceRange(sentence: string): { start: number; end: number } | null {
+  let idx = fullText.indexOf(sentence);
+  if (idx >= 0) return { start: idx, end: idx + sentence.length };
   const s = sentence.replace(/ /g, " ");
-
-  // Tier 1: NBSP-normalised exact match (positions identical to fullText)
-  let start = searchText.indexOf(s);
-  if (start >= 0) return { start, end: start + s.length };
-
-  // Tier 2: collapse all whitespace sequences and search collapsed text
-  const sc = s.replace(/\s+/g, " ").trim();
-  const ci = collapsedText.indexOf(sc);
-  if (ci < 0) return null;
-
-  start = collapsedPosMap[ci];
-  const endCollapsed = ci + sc.length - 1;
-  const end = endCollapsed < collapsedPosMap.length
-    ? collapsedPosMap[endCollapsed] + 1
-    : fullText.length;
-  return { start, end };
+  idx = searchText.indexOf(s);
+  if (idx >= 0) return { start: idx, end: idx + s.length };
+  return null;
 }
 
 function rangeAt(start: number, end: number): Range | null {
