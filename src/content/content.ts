@@ -487,7 +487,7 @@ function gmailBodyText(root: HTMLElement): string {
     if (node.nodeType === Node.ELEMENT_NODE) {
       const el = node as Element;
       if (BLOCK.has(el.tagName)) {
-        if (!lastWasBlock && parts.length) parts.push("\n");
+        if (!lastWasBlock && parts.length) parts.push("\n\n");
         lastWasBlock = true;
       }
       // Gmail renders email emoji as <img> — capture only emoji alt text
@@ -628,7 +628,7 @@ function bodyTextFromNodes(): string {
     if (node.nodeType === Node.ELEMENT_NODE) {
       const tag = (node as Element).tagName;
       if (BLOCK.has(tag)) {
-        if (!lastWasBlock && parts.length) parts.push("\n");
+        if (!lastWasBlock && parts.length) parts.push("\n\n");
         lastWasBlock = true;
       }
     } else {
