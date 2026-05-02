@@ -579,8 +579,10 @@ function splitSentences(text: string): string[] {
 // ── Text-node cache for CSS Highlight API ─────────────────────────────────
 // Rebuilt once per TTS session; reused for every sentence + word highlight.
 let nodeCache: { node: Text; start: number }[] = [];
-let fullText   = "";
-let searchText = ""; // fullText with U+00A0 → space (1-to-1, positions preserved)
+let fullText   = ""; // raw concatenated text node content — positions match DOM offsets
+let searchText = ""; // fullText with U+00A0 → U+0020 (same length, positions preserved)
+let collapsedText   = ""; // searchText with all \s+ → single space (for <br>/<p> mismatch)
+let collapsedPosMap: number[] = []; // collapsedText[i] → fullText position
 let sentencePos = -1; // start of current sentence in fullText (for word offsets)
 
 /** Returns the same root element used by extractText() so the node cache
@@ -611,10 +613,47 @@ function buildNodeCache(): void {
     if (len) nodeCache.push({ node: n, start: pos });
     pos += len;
   }
-  fullText = nodeCache.map(e => e.node.textContent ?? "").join("");
-  // NBSP-normalised copy for matching: U+00A0 → U+0020, same length so
-  // positions map 1-to-1 back to fullText for rangeAt().
+  fullText   = nodeCache.map(e => e.node.textContent ?? "").join("");
+  // NBSP-normalised — same positions as fullText (U+00A0 → U+0020, 1-to-1 swap)
   searchText = fullText.replace(/ /g, " ");
+  // Whitespace-collapsed — for matching sentences where <br>/<p> gaps are missing
+  collapsedText   = "";
+  collapsedPosMap = [];
+  let inWS = false;
+  for (let i = 0; i < searchText.length; i++) {
+    if (/s/.test(searchText[i])) {
+      if (!inWS) { collapsedPosMap.push(i); collapsedText += " "; }
+      inWS = true;
+    } else {
+      collapsedPosMap.push(i); collapsedText += searchText[i];
+      inWS = false;
+    }
+  }
+}
+
+/** Three-tier sentence search — returns { start, end } positions in fullText, or null.
+ *  Tier 1: exact NBSP-normalised match (positions identical to fullText).
+ *  Tier 2: whitespace-collapsed match — handles <br>/<p> boundaries that
+ *          innerText renders as 
+ but raw text nodes have no character for. */
+function findSentenceRange(sentence: string): { start: number; end: number } | null {
+  const s = sentence.replace(/ /g, " ");
+
+  // Tier 1 — NBSP-normalised exact match
+  let start = searchText.indexOf(s);
+  if (start >= 0) return { start, end: start + s.length };
+
+  // Tier 2 — collapse all whitespace and search collapsed text
+  const sc = s.replace(/s+/g, " ").trim();
+  const ci = collapsedText.indexOf(sc);
+  if (ci < 0) return null;
+
+  start = collapsedPosMap[ci];
+  const endCollapsed = ci + sc.length - 1;
+  const end = endCollapsed < collapsedPosMap.length
+    ? collapsedPosMap[endCollapsed] + 1
+    : fullText.length;
+  return { start, end };
 }
 
 function rangeAt(start: number, end: number): Range | null {
@@ -674,17 +713,10 @@ function highlightSentence(sentence: string): void {
   if (!sentence.trim()) return;
 
   if (useHighlightAPI) {
-    // Try exact match, then NBSP-normalised (U+00A0 common in marketing emails)
-    let idx = fullText.indexOf(sentence);
-    let len = sentence.length;
-    if (idx < 0) {
-      const s = sentence.replace(/ /g, " ");
-      idx = searchText.indexOf(s);
-      len = s.length;
-    }
-    if (idx < 0) return;
-    sentencePos = idx;
-    const range = rangeAt(idx, idx + len);
+    const result = findSentenceRange(sentence);
+    if (!result) return;
+    sentencePos = result.start;
+    const range = rangeAt(result.start, result.end);
     if (!range) return;
     CSS.highlights.set(HL_SENTENCE, new Highlight(range));
     scrollRangeIntoView(range);
@@ -737,7 +769,14 @@ function speakFrom(index: number, onDone?: () => void): void {
       if (e.name !== "word" || sentencePos < 0 || ttsGeneration !== gen) return;
       const charLen = (e as SpeechSynthesisEvent & { charLength?: number }).charLength
                    ?? sentence.slice(e.charIndex).match(/^\S+/)?.[0]?.length ?? 1;
-      const range = rangeAt(sentencePos + e.charIndex, sentencePos + e.charIndex + charLen);
+      const word = sentence.slice(e.charIndex, e.charIndex + charLen)
+                           .replace(/ /g, " ").trim();
+      if (!word) return;
+      // Search from sentencePos in searchText — avoids charIndex drift when
+      // sentence whitespace and fullText whitespace differ (e.g. <br> boundaries)
+      const wi = searchText.indexOf(word, sentencePos);
+      if (wi < 0) return;
+      const range = rangeAt(wi, wi + word.length);
       if (range) CSS.highlights.set(HL_WORD, new Highlight(range));
     };
   }
@@ -783,7 +822,7 @@ function stopTTS(): void {
   isPaused = false; speechSynthesis.cancel(); removeHighlight();
   sentences = []; currentIndex = 0; sentenceStartTime = 0;
   realElapsedBase = 0; calculatedTotalSecs = 0; realSentenceDurations = [];
-  nodeCache = []; fullText = ""; searchText = "";
+  nodeCache = []; fullText = ""; searchText = ""; collapsedText = ""; collapsedPosMap = [];
 }
 
 function pauseTTS(): void {
