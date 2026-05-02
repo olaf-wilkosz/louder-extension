@@ -790,7 +790,10 @@ function findSentenceRange(sentence: string): { start: number; end: number } | n
   // Tier 3 — strip emoji from search term: handles Gmail where emoji are
   // rendered as <img> (captured in extraction from alt text) but have no
   // corresponding text node in the DOM for the highlight to land on.
-  const se = sc.replace(/\p{Extended_Pictographic}/gu, "").replace(/\s+/g, " ").trim();
+  const se = sc
+    .replace(/\p{Extended_Pictographic}/gu, "") // strip base emoji codepoints
+    .replace(/[\uFE00-\uFE0F\u200D]/g, "")      // strip variation selectors (FE0F etc.) + ZWJ
+    .replace(/\s+/g, " ").trim();
   if (!se || se === sc) return null; // no emoji present — already failed above
   const ci3 = collapsedText.indexOf(se);
   if (ci3 < 0) return null;
