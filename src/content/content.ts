@@ -541,8 +541,52 @@ function extractText(): string {
   const mainText = mainEl?.innerText.trim() ?? "";
   if (mainText.length > 200) return mainText;
 
-  // 5. Raw fallback — always complete, sometimes noisy
-  return document.body.innerText.trim();
+  // 5. Raw fallback — walk text nodes directly (same as buildNodeCache) so
+  //    alt attributes, <script>, and <style> content are never included,
+  //    keeping extractText() in sync with the highlight node cache.
+  return bodyTextFromNodes();
+}
+
+/** Walk document.body text nodes and join them, inserting a newline whenever
+ *  a block-level element boundary is crossed. This produces text that is
+ *  semantically equivalent to innerText for content purposes but excludes
+ *  img alt text and other non-text-node content, keeping it in sync with
+ *  buildNodeCache(). */
+function bodyTextFromNodes(): string {
+  const BLOCK = new Set([
+    "P","DIV","BR","LI","TR","TD","TH","H1","H2","H3","H4","H5","H6",
+    "BLOCKQUOTE","PRE","ARTICLE","SECTION","HEADER","FOOTER","MAIN",
+    "NAV","ASIDE","FIGURE","FIGCAPTION","TABLE","THEAD","TBODY","TFOOT",
+    "CAPTION","DL","DT","DD","OL","UL","FORM","FIELDSET","ADDRESS","HR",
+  ]);
+  const parts: string[] = [];
+  let lastWasBlock = false;
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+  let node: Node | null;
+  while ((node = walker.nextNode())) {
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const tag = (node as Element).tagName;
+      if (BLOCK.has(tag)) {
+        if (!lastWasBlock && parts.length) parts.push("\n");
+        lastWasBlock = true;
+      }
+    } else {
+      // Text node — skip script/style content
+      const parent = (node as Text).parentElement;
+      if (parent && (parent.tagName === "SCRIPT" || parent.tagName === "STYLE")) continue;
+      const t = (node as Text).textContent ?? "";
+      // Collapse whitespace-only runs at block boundaries
+      const collapsed = t.replace(/\s+/g, " ");
+      if (!collapsed.trim()) {
+        if (lastWasBlock) continue; // skip leading space after block boundary
+        parts.push(collapsed);
+      } else {
+        parts.push(t);
+        lastWasBlock = false;
+      }
+    }
+  }
+  return parts.join("").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 const MAX_WORDS_PER_CHUNK = 60;
@@ -621,7 +665,7 @@ function buildNodeCache(): void {
   collapsedPosMap = [];
   let inWS = false;
   for (let i = 0; i < searchText.length; i++) {
-    if (/s/.test(searchText[i])) {
+    if (/\s/.test(searchText[i])) {
       if (!inWS) { collapsedPosMap.push(i); collapsedText += " "; }
       inWS = true;
     } else {
@@ -644,7 +688,7 @@ function findSentenceRange(sentence: string): { start: number; end: number } | n
   if (start >= 0) return { start, end: start + s.length };
 
   // Tier 2 — collapse all whitespace and search collapsed text
-  const sc = s.replace(/s+/g, " ").trim();
+  const sc = s.replace(/\s+/g, " ").trim();
   const ci = collapsedText.indexOf(sc);
   if (ci < 0) return null;
 
