@@ -3,8 +3,12 @@ const fs = require("fs");
 const path = require("path");
 
 const outDir = "dist";
-if (fs.existsSync(outDir)) fs.rmSync(outDir, { recursive: true });
-fs.mkdirSync(outDir, { recursive: true });
+if (fs.existsSync(outDir)) {
+  for (const entry of fs.readdirSync(outDir))
+    fs.rmSync(path.join(outDir, entry), { recursive: true });
+} else {
+  fs.mkdirSync(outDir, { recursive: true });
+}
 
 function copy(src, dest) {
   fs.copyFileSync(src, path.join(outDir, dest));

@@ -8,6 +8,14 @@ const ACCENT_GLOW = "#3b9eff55";
 const SPEED_STOPS = [5, 4, 3, 2, 1.5, 1, 0.75, 0.5, 0.25];
 const BASE_WPM    = 180;
 
+const PRESETS = {
+  amber:    { dotColor: "#FF9500", wordBg: "rgba(255,149,0,0.65)",  wordColor: "#fff",    sentenceBg: "rgba(255,149,0,0.15)"  },
+  midnight: { dotColor: "#3A5A8C", wordBg: "rgba(58,90,140,0.65)", wordColor: "#fff",    sentenceBg: "rgba(58,90,140,0.2)"   },
+  forest:   { dotColor: "#2D6A4F", wordBg: "rgba(45,106,79,0.65)", wordColor: "#fff",    sentenceBg: "rgba(45,106,79,0.12)"  },
+  paper:    { dotColor: "#111111", wordBg: "rgba(0,0,0,0.75)",     wordColor: "#FFFF00", sentenceBg: "rgba(255,255,0,0.3)"   },
+} as const;
+type PresetKey = keyof typeof PRESETS;
+
 type ThemeVars = {
   bg: string; panelBg: string; border: string; divider: string;
   icon: string; iconHover: string; text: string; subtext: string;
@@ -380,8 +388,8 @@ const SHADOW_CSS = `
 .show-more-btn:hover { color: var(--icon-hover); background: var(--chip-bg); }
 
 /* ── settings panel ── */
-.settings-panel { padding: 12px 14px; min-width: 180px; }
-.settings-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.settings-panel { padding: 10px 8px; min-width: 220px; }
+.section-lbl { font-size: 10px; color: var(--subtext); display: block; margin-bottom: 4px; }
 .theme-seg { display: flex; gap: 4px; background: var(--chip-bg); border-radius: 10px; padding: 3px; }
 .theme-btn {
   flex: 1; padding: 5px 4px; border-radius: 7px; border: none; cursor: pointer;
@@ -390,6 +398,25 @@ const SHADOW_CSS = `
 }
 .theme-btn:not(.active):hover { background: var(--chip-bg); color: var(--icon-hover); }
 .theme-btn.active { background: var(--chip-bg-hover); font-weight: 600; color: var(--text); }
+
+/* ── highlight presets ── */
+.preset-section { margin-top: 8px; }
+.preset-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
+  background: var(--chip-bg); border-radius: 10px; padding: 3px;
+}
+.preset-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 6px; border-radius: 7px; border: none; cursor: pointer;
+  background: transparent; font-family: inherit; transition: all .15s;
+}
+.preset-item:not(.active):hover { background: var(--chip-bg); color: var(--icon-hover); }
+.preset-item.active { background: var(--chip-bg-hover); }
+.preset-name { font-size: 11px; color: var(--subtext); font-weight: 400; }
+.preset-item:not(.active):hover .preset-name { color: var(--icon-hover); }
+.preset-item.active .preset-name { font-weight: 600; color: var(--text); }
+.preset-mini { display: flex; border-radius: 4px; overflow: hidden; flex-shrink: 0; }
+.mini-s, .mini-w { width: 12px; height: 12px; }
 `;
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -401,11 +428,16 @@ const HL_WORD     = "louder-word";
 const useHighlightAPI = typeof CSS !== "undefined" && "highlights" in CSS;
 
 const highlightStyle = document.createElement("style");
-highlightStyle.textContent = useHighlightAPI
-  ? `::highlight(${HL_SENTENCE}){background-color:rgba(255,220,80,0.45);color:inherit;}
-     ::highlight(${HL_WORD}){background-color:rgba(255,140,0,0.65);color:inherit;}`
-  : `.louder-highlight{background:#ffe066;border-radius:2px;}`;
 document.head.appendChild(highlightStyle);
+
+function applyHighlightColors(preset: PresetKey): void {
+  const p = PRESETS[preset];
+  highlightStyle.textContent = useHighlightAPI
+    ? `::highlight(${HL_SENTENCE}){background-color:${p.sentenceBg};color:inherit;}
+       ::highlight(${HL_WORD}){background-color:${p.wordBg};color:${p.wordColor};}`
+    : `.louder-highlight{background:${p.wordBg};border-radius:2px;}`;
+}
+applyHighlightColors("amber");
 
 let sentences: string[] = [];
 let currentIndex = 0;
@@ -1016,6 +1048,7 @@ class LouderWidget {
   private wState: WidgetState = "collapsed";
   private ttsActive = false; // true while TTS is actually speaking (independent of visual state)
   private popup: PopupId | null = null;
+  private highlightPreset: PresetKey = "amber";
   private themeChoice: ThemeChoice = "dark";
   private speed = 1;
   private activeVoiceURI = "";
@@ -1112,13 +1145,17 @@ class LouderWidget {
   private async loadSettings(): Promise<void> {
     return new Promise(resolve => {
       chrome.storage.local.get(
-        ["selectedVoiceURI", "speed", "themeChoice", "panelRight", "panelTop", "pinnedVoices"],
+        ["selectedVoiceURI", "speed", "themeChoice", "panelRight", "panelTop", "pinnedVoices", "highlightPreset"],
         r => {
           if (typeof r.speed === "number" && SPEED_STOPS.includes(r.speed)) this.speed = r.speed;
           if (typeof r.selectedVoiceURI === "string") this.activeVoiceURI = r.selectedVoiceURI;
           if (r.themeChoice === "dark" || r.themeChoice === "light" || r.themeChoice === "system")
             this.themeChoice = r.themeChoice;
           if (Array.isArray(r.pinnedVoices)) this.pinnedVoices = r.pinnedVoices;
+          if (typeof r.highlightPreset === "string" && r.highlightPreset in PRESETS) {
+            this.highlightPreset = r.highlightPreset as PresetKey;
+            applyHighlightColors(this.highlightPreset);
+          }
           if (typeof r.panelRight === "number" && typeof r.panelTop === "number") {
             this.host.style.bottom = ""; this.host.style.left = "";
             this.host.style.right  = `${r.panelRight}px`;
@@ -1139,6 +1176,7 @@ class LouderWidget {
       speed: this.speed,
       themeChoice: this.themeChoice,
       pinnedVoices: this.pinnedVoices,
+      highlightPreset: this.highlightPreset,
     });
   }
 
@@ -1508,7 +1546,7 @@ class LouderWidget {
 
     const hdr = document.createElement("div");
     hdr.className = "panel-hdr";
-    hdr.innerHTML = `<span class="panel-lbl">Voice</span>`;
+    hdr.innerHTML = `<span class="panel-lbl">Voices</span>`;
     const hdrClose = document.createElement("div");
     hdrClose.className = "panel-close"; hdrClose.innerHTML = I.close;
     hdrClose.addEventListener("click", () => this.setPopup(null));
@@ -1604,13 +1642,18 @@ class LouderWidget {
     wrap.className = "panel settings-panel";
 
     const hdr = document.createElement("div");
-    hdr.className = "settings-hdr";
-    hdr.innerHTML = `<span class="panel-lbl">Appearance</span>`;
+    hdr.className = "panel-hdr";
+    hdr.innerHTML = `<span class="panel-lbl">Settings</span>`;
     const hdrClose = document.createElement("div");
     hdrClose.className = "panel-close"; hdrClose.innerHTML = I.close;
     hdrClose.addEventListener("click", () => this.setPopup(null));
     hdr.appendChild(hdrClose);
     wrap.appendChild(hdr);
+
+    const themeLbl = document.createElement("span");
+    themeLbl.className = "section-lbl";
+    themeLbl.textContent = "Theme";
+    wrap.appendChild(themeLbl);
 
     const seg = document.createElement("div");
     seg.className = "theme-seg";
@@ -1625,6 +1668,46 @@ class LouderWidget {
       seg.appendChild(btn);
     });
     wrap.appendChild(seg);
+
+    const presetSection = document.createElement("div");
+    presetSection.className = "preset-section";
+    const presetLbl = document.createElement("span");
+    presetLbl.className = "section-lbl";
+    presetLbl.textContent = "Highlight";
+    presetSection.appendChild(presetLbl);
+
+    const grid = document.createElement("div");
+    grid.className = "preset-grid";
+    (Object.keys(PRESETS) as PresetKey[]).forEach(key => {
+      const p = PRESETS[key];
+      const item = document.createElement("button");
+      item.className = `preset-item${this.highlightPreset === key ? " active" : ""}`;
+      const name = document.createElement("span");
+      name.className = "preset-name";
+      name.textContent = key.charAt(0).toUpperCase() + key.slice(1);
+      const mini = document.createElement("div");
+      mini.className = "preset-mini";
+      const miniS = document.createElement("div");
+      miniS.className = "mini-s";
+      miniS.style.background = p.sentenceBg;
+      const miniW = document.createElement("div");
+      miniW.className = "mini-w";
+      miniW.style.background = p.dotColor;
+      mini.appendChild(miniS);
+      mini.appendChild(miniW);
+      item.appendChild(name);
+      item.appendChild(mini);
+      item.addEventListener("click", () => {
+        this.highlightPreset = key;
+        this.saveSettings();
+        applyHighlightColors(key);
+        grid.querySelectorAll<HTMLElement>(".preset-item").forEach(s => s.classList.remove("active"));
+        item.classList.add("active");
+      });
+      grid.appendChild(item);
+    });
+    presetSection.appendChild(grid);
+    wrap.appendChild(presetSection);
     return wrap;
   }
 
