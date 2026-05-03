@@ -3,8 +3,12 @@ import { Readability } from "@mozilla/readability";
 /* ═══════════════════════════════════════════════════════════════════
    DESIGN TOKENS
 ═══════════════════════════════════════════════════════════════════ */
-const ACCENT      = "#3b9eff";
-const ACCENT_GLOW = "#3b9eff55";
+const ACCENT           = "#46edd5";
+const ACCENT_GLOW      = "#46edd555";
+const ACCENT_TINT      = "#46edd521";
+const ACCENT_LIGHT      = "#007d6f";
+const ACCENT_LIGHT_GLOW = "#007d6f55";
+const ACCENT_LIGHT_TINT = "#007d6f21";
 const SPEED_STOPS = [5, 4, 3, 2, 1.5, 1, 0.75, 0.5, 0.25];
 const BASE_WPM    = 180;
 
@@ -136,7 +140,7 @@ const SHADOW_CSS = `
 .close-btn:hover { background-image: linear-gradient(var(--chip-bg-hover), var(--chip-bg-hover)); color: var(--icon-hover); transform: scale(1.15); }
 /* Active: X icon flips to blue */
 .close-btn:active,
-.root:hover .close-btn:active { color: ${ACCENT}; }
+.root:hover .close-btn:active { color: var(--accent); }
 /* close button: reveal on hover in all states, or always when panel is open */
 [data-state="collapsed"] .pill:hover .close-btn,
 [data-state="expanded"]  .pill:hover .close-btn,
@@ -193,7 +197,7 @@ const SHADOW_CSS = `
   font-family: inherit;
 }
 .icon-btn:hover  { background: var(--chip-bg-hover); color: var(--icon-hover); }
-.icon-btn.active { background: rgba(59,158,255,0.13); color: ${ACCENT}; }
+.icon-btn.active { background: var(--accent-tint); color: var(--accent); }
 
 /* speed badge inside icon-btn */
 .speed-badge {
@@ -240,12 +244,12 @@ const SHADOW_CSS = `
   transition: background .14s, color .14s;
 }
 .skip-btn:hover  { background: var(--chip-bg-hover); color: var(--icon-hover); }
-.skip-btn:active { background: rgba(59,158,255,0.13); color: ${ACCENT}; }
+.skip-btn:active { background: var(--accent-tint); color: var(--accent); }
 
 /* ── play button ── */
 .play-btn {
   width: 36px; height: 36px; border-radius: 50%; border: none;
-  background: ${ACCENT}; box-shadow: 0 0 16px ${ACCENT_GLOW};
+  background: var(--accent); box-shadow: 0 0 16px var(--accent-glow);
   color: #fff; display: flex; align-items: center; justify-content: center;
   cursor: pointer; flex-shrink: 0; position: relative; z-index: 1;
   transition: filter .15s;
@@ -266,6 +270,7 @@ const SHADOW_CSS = `
 }
 [data-tts-active] .progress-ring { opacity: 1; }
 .ring-track { stroke: var(--track-bg); }
+.ring-arc   { stroke: var(--accent); }
 
 /* ── drag dots ── */
 .drag-dots {
@@ -321,12 +326,12 @@ const SHADOW_CSS = `
 }
 .speed-track-fill {
   position: absolute; left: 50%; transform: translateX(-50%);
-  width: 4px; border-radius: 2px; background: ${ACCENT}; bottom: 0;
+  width: 4px; border-radius: 2px; background: var(--accent); bottom: 0;
 }
 .speed-handle {
   position: absolute; left: 50%; transform: translate(-50%, -50%);
   width: 14px; height: 14px; border-radius: 50%;
-  background: ${ACCENT}; box-shadow: 0 0 8px ${ACCENT_GLOW}; z-index: 2;
+  background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); z-index: 2;
 }
 .speed-labels {
   display: flex; flex-direction: column; justify-content: space-between;
@@ -356,18 +361,18 @@ const SHADOW_CSS = `
   border-radius: 10px; cursor: pointer; transition: background .12s;
 }
 .voice-item:hover:not(.active) { background: var(--voice-hover); }
-.voice-item.active { background: rgba(59,158,255,0.13); }
+.voice-item.active { background: var(--accent-tint); }
 .voice-avatar {
   width: 28px; height: 28px; border-radius: 50%;
   background: var(--chip-bg); flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
   color: var(--icon);
 }
-.voice-item.active .voice-avatar { background: rgba(59,158,255,0.13); color: ${ACCENT}; }
+.voice-item.active .voice-avatar { background: var(--accent-tint); color: var(--accent); }
 .voice-name { font-size: 13px; line-height: 1.2; color: var(--icon); }
 .voice-item.active .voice-name { font-weight: 600; color: var(--text); }
 .voice-hint   { font-size: 10px; color: var(--subtext); margin-top: 1px; }
-.voice-accent { margin-left: auto; width: 6px; height: 6px; border-radius: 50%; background: ${ACCENT}; }
+.voice-accent { margin-left: auto; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
 .pin-btn {
   width: 22px; height: 22px; border-radius: 50%; border: none; background: none;
   cursor: pointer; display: flex; align-items: center; justify-content: center;
@@ -375,9 +380,9 @@ const SHADOW_CSS = `
   transition: color .12s, background .12s, opacity .12s;
 }
 .voice-item:hover .pin-btn { opacity: 1; }
-.pin-btn.pinned { opacity: 1; color: ${ACCENT}; }
+.pin-btn.pinned { opacity: 1; color: var(--accent); }
 .pin-btn:hover { background: var(--chip-bg-hover); color: var(--icon-hover); }
-.pin-btn.pinned:hover { color: ${ACCENT}; }
+.pin-btn.pinned:hover { color: var(--accent); }
 .voice-divider { height: 1px; background: var(--divider); margin: 4px 8px; }
 .show-more-btn {
   width: 100%; padding: 5px 10px; border: none; background: none; cursor: pointer;
@@ -1119,8 +1124,12 @@ class LouderWidget {
   }
 
   private applyThemeVars(): void {
-    const t = this.resolvedTheme() === "light" ? LIGHT : DARK;
+    const theme = this.resolvedTheme();
+    const t = theme === "light" ? LIGHT : DARK;
     const s = this.host.style;
+    s.setProperty("--accent",      theme === "light" ? ACCENT_LIGHT      : ACCENT);
+    s.setProperty("--accent-glow", theme === "light" ? ACCENT_LIGHT_GLOW : ACCENT_GLOW);
+    s.setProperty("--accent-tint", theme === "light" ? ACCENT_LIGHT_TINT : ACCENT_TINT);
     s.setProperty("--bg",            t.bg);
     s.setProperty("--panel-bg",      t.panelBg);
     s.setProperty("--border",        t.border);
@@ -1353,7 +1362,7 @@ class LouderWidget {
     this.ringArc = document.createElementNS(ns, "circle") as SVGCircleElement;
     this.ringArc.setAttribute("cx", String(SIZE / 2)); this.ringArc.setAttribute("cy", String(SIZE / 2));
     this.ringArc.setAttribute("r", String(R)); this.ringArc.setAttribute("fill", "none");
-    this.ringArc.setAttribute("stroke", ACCENT); this.ringArc.setAttribute("stroke-width", "2.2");
+    this.ringArc.classList.add("ring-arc"); this.ringArc.setAttribute("stroke-width", "2.2");
     this.ringArc.setAttribute("stroke-linecap", "round");
     this.ringArc.setAttribute("stroke-dasharray", `0 ${CIRC}`);
     this.ringArc.style.transition = "stroke-dasharray 1s linear";
