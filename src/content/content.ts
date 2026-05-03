@@ -251,12 +251,12 @@ const SHADOW_CSS = `
   justify-content: center; width: 36px; height: 36px; flex-shrink: 0;
 }
 
-/* ── progress ring (hidden unless playing) ── */
+/* ── progress ring (hidden unless TTS active) ── */
 .progress-ring {
   position: absolute; inset: -6px; z-index: 0; pointer-events: none;
   opacity: 0; transition: opacity .2s ease;
 }
-[data-state="playing"] .progress-ring { opacity: 1; }
+[data-tts-active] .progress-ring { opacity: 1; }
 .ring-track { stroke: var(--track-bg); }
 
 /* ── drag dots ── */
@@ -1650,7 +1650,7 @@ class LouderWidget {
     if (this.ttsActive) {
       // Pause
       pauseTTS();
-      this.ttsActive = false;
+      this.setTTSActive(false);
       this.playBtnEl.innerHTML = I.play;
       // If the pill was showing the playing (expanded) view, drop back to expanded-idle
       if (this.wState === "playing") {
@@ -1659,7 +1659,7 @@ class LouderWidget {
       }
     } else if (isPaused && sentences.length > 0) {
       // Resume paused session from wherever the widget sits visually
-      this.ttsActive = true;
+      this.setTTSActive(true);
       this.playBtnEl.innerHTML = I.pause;
       if (this.wState !== "collapsed") {
         this.goPlaying();
@@ -1677,7 +1677,7 @@ class LouderWidget {
 
   /** Called when TTS finishes naturally (not paused/stopped). */
   private onTTSDone(): void {
-    this.ttsActive = false;
+    this.setTTSActive(false);
     this.stopTimer();
     this.playBtnEl.innerHTML = I.play;
     if (this.wState === "playing") this.goExpanded();
@@ -1687,7 +1687,7 @@ class LouderWidget {
     const raw = text ?? extractText();
     const wordCount = raw.split(/\s+/).length;
     this.totalSecs = Math.max(10, Math.round(wordCount / (this.speed * BASE_WPM) * 60));
-    this.ttsActive = true;
+    this.setTTSActive(true);
     this.playBtnEl.innerHTML = I.pause;
     this.startTimer();
 
@@ -1729,13 +1729,19 @@ class LouderWidget {
 
   private handleClose(): void {
     stopTTS();
-    this.ttsActive = false;
+    this.setTTSActive(false);
     this.stopTimer();
     this.playBtnEl.innerHTML = I.play;
     this.wState = "collapsed";
     if (this.root) this.root.dataset.state = "collapsed";
     this.setPopup(null);
     this.hideWidget();
+  }
+
+  private setTTSActive(v: boolean): void {
+    this.ttsActive = v;
+    if (v) this.root.dataset.ttsActive = "true";
+    else   delete this.root.dataset.ttsActive;
   }
 
   // ── Timer ─────────────────────────────────────────────────────────
@@ -1812,7 +1818,7 @@ class LouderWidget {
     if (!this.ttsActive) return;
     isPaused = true;       // keep sentences[] so user can resume
     removeHighlight();
-    this.ttsActive = false;
+    this.setTTSActive(false);
     this.stopTimer();
     this.playBtnEl.innerHTML = I.play;
     if (this.wState === "playing") this.goExpanded();
