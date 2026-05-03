@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "ReadFlow",
+  "name": "Louder",
   "version": "1.0.0",
   "description": "Distraction-free text-to-speech reader for the browser.",
   "action": {

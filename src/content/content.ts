@@ -398,15 +398,15 @@ const SHADOW_CSS = `
    TTS ENGINE
 ═══════════════════════════════════════════════════════════════════ */
 // ── CSS Custom Highlight API (Chrome 105+, always available at our target Chrome 112) ──
-const HL_SENTENCE = "readflow-sentence";
-const HL_WORD     = "readflow-word";
+const HL_SENTENCE = "louder-sentence";
+const HL_WORD     = "louder-word";
 const useHighlightAPI = typeof CSS !== "undefined" && "highlights" in CSS;
 
 const highlightStyle = document.createElement("style");
 highlightStyle.textContent = useHighlightAPI
   ? `::highlight(${HL_SENTENCE}){background-color:rgba(255,220,80,0.45);color:inherit;}
      ::highlight(${HL_WORD}){background-color:rgba(255,140,0,0.65);color:inherit;}`
-  : `.readflow-highlight{background:#ffe066;border-radius:2px;}`;
+  : `.louder-highlight{background:#ffe066;border-radius:2px;}`;
 document.head.appendChild(highlightStyle);
 
 let sentences: string[] = [];
@@ -429,7 +429,7 @@ let realSentenceDurations: number[] = [];
 // any tab starting playback cancels every other tab's audio silently.
 // We use storage to broadcast ownership so displaced tabs can update their UI.
 const INSTANCE_ID      = Math.random().toString(36).slice(2, 10);
-const PLAYING_OWNER_KEY = "readflow_playing_owner";
+const PLAYING_OWNER_KEY = "louder_playing_owner";
 
 // Cache voices at module level — getVoices() returns [] until the async load completes.
 // We keep this updated so speakFrom always has a full list to pick from.
@@ -880,7 +880,7 @@ function highlightSentence(sentence: string): void {
       const r = document.createRange();
       r.setStart(node, idx); r.setEnd(node, idx + sentence.length);
       const mark = document.createElement("mark");
-      mark.className = "readflow-highlight";
+      mark.className = "louder-highlight";
       try { r.surroundContents(mark); mark.scrollIntoView({ behavior: "smooth", block: "center" }); }
       catch { /* boundary crossing — mark not inserted */ }
       return;
@@ -1010,7 +1010,7 @@ type WidgetState = "collapsed" | "expanded" | "playing";
 type PopupId     = "speed" | "voice" | "settings";
 type ThemeChoice = "dark" | "light" | "system";
 
-class ReadFlowWidget {
+class LouderWidget {
   private host: HTMLElement;
   private shadow: ShadowRoot;
 
@@ -1047,10 +1047,10 @@ class ReadFlowWidget {
 
   constructor() {
     // Remove any orphaned host left by a previous extension load (reload / re-install)
-    document.getElementById("readflow-host")?.remove();
+    document.getElementById("louder-host")?.remove();
 
     this.host = document.createElement("div");
-    this.host.id = "readflow-host";
+    this.host.id = "louder-host";
     this.host.style.display = "none"; // revealed on first toggle()
     this.shadow = this.host.attachShadow({ mode: "open" });
     document.documentElement.appendChild(this.host);
@@ -1073,9 +1073,9 @@ class ReadFlowWidget {
 
   // ── Font ─────────────────────────────────────────────────────────
   private injectFont(): void {
-    if (document.getElementById("readflow-font")) return;
+    if (document.getElementById("louder-font")) return;
     const link = document.createElement("link");
-    link.id = "readflow-font"; link.rel = "stylesheet";
+    link.id = "louder-font"; link.rel = "stylesheet";
     link.href = "https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap";
     document.head.appendChild(link);
   }
@@ -1856,10 +1856,10 @@ class ReadFlowWidget {
 /* ═══════════════════════════════════════════════════════════════════
    BOOTSTRAP
 ═══════════════════════════════════════════════════════════════════ */
-let widget: ReadFlowWidget | null = null;
+let widget: LouderWidget | null = null;
 
-function getWidget(): ReadFlowWidget {
-  if (!widget) widget = new ReadFlowWidget();
+function getWidget(): LouderWidget {
+  if (!widget) widget = new LouderWidget();
   return widget;
 }
 
@@ -1885,7 +1885,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
 // or when the extension is removed (connect() throws — clean up).
 function connectKeepalive(): void {
   try {
-    const port = chrome.runtime.connect({ name: "readflow-keepalive" });
+    const port = chrome.runtime.connect({ name: "louder-keepalive" });
     port.onDisconnect.addListener(() => {
       // Wait briefly then try to reconnect; if extension is gone connect() throws.
       setTimeout(connectKeepalive, 200);
@@ -1893,7 +1893,7 @@ function connectKeepalive(): void {
   } catch {
     // Extension removed or reloaded — tear everything down.
     stopTTS();
-    document.getElementById("readflow-host")?.remove();
+    document.getElementById("louder-host")?.remove();
     widget = null;
   }
 }

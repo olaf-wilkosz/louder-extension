@@ -4,14 +4,14 @@ chrome.runtime.onConnect.addListener((_port) => { /* keepalive — no-op */ });
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
-    id: "readflow-selection",
-    title: "Read selected text with ReadFlow",
+    id: "louder-selection",
+    title: "Read selected text with Louder",
     contexts: ["selection"],
   });
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === "readflow-selection" && tab?.id != null) {
+  if (info.menuItemId === "louder-selection" && tab?.id != null) {
     injectAndSend(tab.id, { type: "READ_SELECTION" });
   }
 });
