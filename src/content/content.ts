@@ -113,9 +113,7 @@ const SHADOW_CSS = `
 .close-btn {
   position: absolute; top: -8px; right: -8px; z-index: 20;
   width: 19px; height: 19px; border-radius: 50%;
-  /* Stable pre-background: always pill-hover opacity so chip-bg-hover overlay works the
-     same as on icon buttons inside the pill — no longer depends on the page behind */
-  background-color: var(--pill-bg-hover);
+  background-color: var(--pill-bg);
   background-image: none;
   border: 1px solid var(--border);
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
@@ -124,8 +122,8 @@ const SHADOW_CSS = `
   opacity: 0; pointer-events: none;
   transition: opacity .15s, background-color .15s, background-image .15s, transform .15s, color .15s;
 }
-/* Shared hover: root hovered → icon brightens (background already at hover level) */
-.root:hover .close-btn { color: var(--icon-hover); }
+/* Shared hover: root hovered → background and icon both brighten, matching the pill */
+.root:hover .close-btn { background-color: var(--pill-bg-hover); color: var(--icon-hover); }
 /* Direct hover: add chip overlay as background-image; background-color stays from base rule */
 .close-btn:hover { background-image: linear-gradient(var(--chip-bg-hover), var(--chip-bg-hover)); color: var(--icon-hover); transform: scale(1.15); }
 /* Active: X icon flips to blue */
