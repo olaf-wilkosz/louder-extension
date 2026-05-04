@@ -12,7 +12,7 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === "louder-selection" && tab?.id != null) {
-    injectAndSend(tab.id, { type: "READ_SELECTION" });
+    injectAndSend(tab.id, { type: "READ_SELECTION", text: info.selectionText ?? "" });
   }
 });
 

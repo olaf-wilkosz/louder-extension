@@ -1054,6 +1054,8 @@ class LouderWidget {
   private ttsActive = false; // true while TTS is actually speaking (independent of visual state)
   private popup: PopupId | null = null;
   private highlightPreset: PresetKey = "amber";
+  private domReady = false;
+  private pendingSelection: string | null = null;
   private themeChoice: ThemeChoice = "dark";
   private speed = 1;
   private activeVoiceURI = "";
@@ -1096,10 +1098,14 @@ class LouderWidget {
       this.applyThemeVars();
       this.buildDOM();
       this.setupDrag();
-      // Rebuild voice panel if it's open when the browser finishes loading voices async
       speechSynthesis.addEventListener("voiceschanged", () => {
         if (this.popup === "voice") this.setPopup("voice");
       });
+      this.domReady = true;
+      if (this.pendingSelection) {
+        this.readSelection(this.pendingSelection);
+        this.pendingSelection = null;
+      }
     });
 
     window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
@@ -1939,13 +1945,19 @@ class LouderWidget {
     }
   }
 
-  readSelection(): void {
+  readSelection(text?: string): void {
+    const sel = text?.trim() || window.getSelection()?.toString().trim();
+    if (!sel) return;
+    if (!this.domReady) {
+      this.host.style.display = "";
+      this.pendingSelection = sel;
+      return;
+    }
     if (this.host.style.display === "none") {
       this.host.style.display = "";
       this.preCalculateTotalTime();
     }
-    const sel = window.getSelection()?.toString().trim();
-    if (sel) this.startPlaying(sel);
+    this.startPlaying(sel);
   }
 }
 
@@ -1962,7 +1974,7 @@ function getWidget(): LouderWidget {
 chrome.runtime.onMessage.addListener((msg) => {
   switch (msg.type) {
     case "TOGGLE_PANEL":    getWidget().toggle(); break;
-    case "READ_SELECTION":  getWidget().readSelection(); break;
+    case "READ_SELECTION":  getWidget().readSelection(msg.text); break;
   }
 });
 
