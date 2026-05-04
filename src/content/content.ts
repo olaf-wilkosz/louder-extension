@@ -24,7 +24,7 @@ type ThemeVars = {
   bg: string; panelBg: string; border: string; divider: string;
   icon: string; iconHover: string; text: string; subtext: string;
   timer: string; closeBg: string; closeBorder: string; trackBg: string;
-  chipBg: string; chipBgHover: string; voiceHover: string;
+  chipBg: string; chipBgHover: string;
   pillBg: string; pillBgHover: string;
 };
 
@@ -38,7 +38,6 @@ const DARK: ThemeVars = {
   closeBg: "#3a3a3e",   closeBorder: "rgba(255,255,255,0.1)",
   trackBg: "rgba(255,255,255,0.1)",
   chipBg: "rgba(255,255,255,0.06)",  chipBgHover: "rgba(255,255,255,0.12)",
-  voiceHover: "rgba(255,255,255,0.06)",
 };
 
 const LIGHT: ThemeVars = {
@@ -51,7 +50,6 @@ const LIGHT: ThemeVars = {
   closeBg: "#c4c4cc",   closeBorder: "rgba(0,0,0,0.08)",
   trackBg: "rgba(0,0,0,0.11)",
   chipBg: "rgba(0,0,0,0.05)",        chipBgHover: "rgba(0,0,0,0.09)",
-  voiceHover: "rgba(0,0,0,0.05)",
 };
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -355,12 +353,17 @@ const SHADOW_CSS = `
 .voice-list::-webkit-scrollbar-thumb:hover { background: var(--icon); }
 .panel-hdr { display: flex; align-items: center; justify-content: space-between; padding: 2px 8px 8px; }
 .panel-lbl { font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--subtext); }
-.panel-close { cursor: pointer; color: var(--subtext); display: flex; }
+.panel-close {
+  cursor: pointer; color: var(--subtext); display: flex;
+  border-radius: 50%; padding: 3px; margin: -3px;
+  transition: color .12s, background .12s;
+}
+.panel-close:hover { color: var(--icon-hover); background: var(--chip-bg); }
 .voice-item {
   display: flex; align-items: center; gap: 10px; padding: 8px 10px;
   border-radius: 10px; cursor: pointer; transition: background .12s;
 }
-.voice-item:hover:not(.active) { background: var(--voice-hover); }
+.voice-item:hover:not(.active) { background: var(--chip-bg); }
 .voice-item.active { background: var(--accent-tint); }
 .voice-avatar {
   width: 28px; height: 28px; border-radius: 50%;
@@ -1150,7 +1153,7 @@ class LouderWidget {
     s.setProperty("--track-bg",      t.trackBg);
     s.setProperty("--chip-bg",       t.chipBg);
     s.setProperty("--chip-bg-hover", t.chipBgHover);
-    s.setProperty("--voice-hover",   t.voiceHover);
+
     s.setProperty("--pill-bg",       t.pillBg);
     s.setProperty("--pill-bg-hover", t.pillBgHover);
     s.setProperty("--drag-dot",      this.resolvedTheme() === "light" ? "#444" : "#fff");
