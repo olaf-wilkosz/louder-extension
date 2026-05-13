@@ -346,6 +346,11 @@ const SHADOW_CSS = `
 
 /* ── voice panel ── */
 .voice-panel { padding: 10px 8px; min-width: 220px; }
+@keyframes louder-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.voice-item-enter { animation: louder-fade-in .15s ease forwards; }
 .voice-list  { max-height: 260px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--subtext) transparent; }
 .voice-list::-webkit-scrollbar { width: 4px; }
 .voice-list::-webkit-scrollbar-track { background: transparent; }
@@ -1085,6 +1090,7 @@ class LouderWidget {
   private spRefs: { hdrVal: HTMLElement; hdrWpm: HTMLElement; fill: HTMLElement; handle: HTMLElement; labels: HTMLButtonElement[] } | null = null;
   private pinnedVoices: string[] = [];
   private voiceListExpanded = false;
+  private voiceListEl: HTMLElement | null = null;
 
   constructor() {
     // Remove any orphaned host left by a previous extension load (reload / re-install)
@@ -1102,7 +1108,7 @@ class LouderWidget {
       this.buildDOM();
       this.setupDrag();
       speechSynthesis.addEventListener("voiceschanged", () => {
-        if (this.popup === "voice") this.setPopup("voice");
+        if (this.popup === "voice") this.refreshVoiceList();
       });
       this.domReady = true;
       if (this.pendingSelection) {
@@ -1571,50 +1577,70 @@ class LouderWidget {
     hdr.appendChild(hdrClose);
     wrap.appendChild(hdr);
 
+    const list = document.createElement("div");
+    list.className = "voice-list";
+    this.voiceListEl = list;
+    this.refreshVoiceList();
+
+    wrap.appendChild(list);
+    return wrap;
+  }
+
+  private refreshVoiceList(flipURI?: string): void {
+    const list = this.voiceListEl;
+    if (!list) return;
+
+    const fmt = (v: SpeechSynthesisVoice) =>
+      v.name.replace(/^Microsoft\s+/i, "").replace(/\s+Desktop.*$/i, "");
+
+    // ── FLIP: snapshot positions before clearing ──────────────────────
+    const before = new Map<string, DOMRect>();
+    list.querySelectorAll<HTMLElement>(".voice-item[data-uri]").forEach(el => {
+      before.set(el.dataset.uri!, el.getBoundingClientRect());
+    });
+
+    list.innerHTML = "";
+
     const allVoices = this.getRelevantVoices().filter(v => v.voiceURI);
     const pinnedSet = new Set(this.pinnedVoices);
     const pinned   = allVoices.filter(v =>  pinnedSet.has(v.voiceURI));
     const unpinned = allVoices.filter(v => !pinnedSet.has(v.voiceURI));
     const hasPinned = pinned.length > 0;
 
-    const list = document.createElement("div");
-    list.className = "voice-list";
-
-    const fmt = (v: SpeechSynthesisVoice) =>
-      v.name.replace(/^Microsoft\s+/i, "").replace(/\s+Desktop.*$/i, "");
-
     const makeItem = (uri: string, name: string, hint: string, isPinned: boolean): HTMLElement => {
-      const active = this.activeVoiceURI === uri;
       const item = document.createElement("div");
-      item.className = `voice-item${active ? " active" : ""}`;
+      item.className = `voice-item${this.activeVoiceURI === uri ? " active" : ""}`;
+      if (uri) item.dataset.uri = uri;
 
-      const avatar = document.createElement("div"); avatar.className = "voice-avatar"; avatar.innerHTML = I.person;
+      const avatar  = document.createElement("div"); avatar.className = "voice-avatar"; avatar.innerHTML = I.person;
       const textDiv = document.createElement("div"); textDiv.style.flex = "1";
-      const nameEl = document.createElement("div"); nameEl.className = "voice-name"; nameEl.textContent = name;
-      const hintEl = document.createElement("div"); hintEl.className = "voice-hint"; hintEl.textContent = hint;
+      const nameEl  = document.createElement("div"); nameEl.className = "voice-name"; nameEl.textContent = name;
+      const hintEl  = document.createElement("div"); hintEl.className = "voice-hint"; hintEl.textContent = hint;
       textDiv.appendChild(nameEl); textDiv.appendChild(hintEl);
       item.appendChild(avatar); item.appendChild(textDiv);
 
       if (uri) {
         const pinBtn = document.createElement("button");
         pinBtn.className = `pin-btn${isPinned ? " pinned" : ""}`;
-        pinBtn.title = isPinned ? "Unpin" : "Pin to top";
+        pinBtn.title     = isPinned ? "Unpin" : "Pin to top";
         pinBtn.innerHTML = isPinned ? I.star : I.starOut;
-        pinBtn.addEventListener("click", e => { e.stopPropagation(); this.togglePinVoice(uri); });
+        pinBtn.addEventListener("click", e => {
+          e.stopPropagation();
+          this.togglePinVoice(uri);
+        });
         item.appendChild(pinBtn);
       }
 
       item.addEventListener("click", () => {
         this.activeVoiceURI = uri; voiceURI = uri;
-        this.saveSettings(); this.setPopup(null);
+        this.saveSettings();
+        list.querySelectorAll<HTMLElement>(".voice-item").forEach(el => el.classList.remove("active"));
+        item.classList.add("active");
       });
       return item;
     };
 
-    // Default is always first, never pinnable
     list.appendChild(makeItem("", "Default", "Browser default", false));
-
-    // Pinned voices immediately below Default
     pinned.forEach(v => list.appendChild(makeItem(v.voiceURI, fmt(v), v.lang, true)));
 
     if (allVoices.length === 0) {
@@ -1629,7 +1655,7 @@ class LouderWidget {
         const btn = document.createElement("button");
         btn.className = "show-more-btn";
         btn.textContent = `Show ${unpinned.length} more ▾`;
-        btn.addEventListener("click", () => { this.voiceListExpanded = true; this.setPopup("voice"); });
+        btn.addEventListener("click", () => { this.voiceListExpanded = true; this.refreshVoiceList(); });
         list.appendChild(btn);
       } else {
         unpinned.forEach(v => list.appendChild(makeItem(v.voiceURI, fmt(v), v.lang, false)));
@@ -1637,22 +1663,43 @@ class LouderWidget {
           const btn = document.createElement("button");
           btn.className = "show-more-btn";
           btn.textContent = "Show less ▴";
-          btn.addEventListener("click", () => { this.voiceListExpanded = false; this.setPopup("voice"); });
+          btn.addEventListener("click", () => { this.voiceListExpanded = false; this.refreshVoiceList(); });
           list.appendChild(btn);
         }
       }
     }
 
-    wrap.appendChild(list);
-    return wrap;
+    // ── FLIP: play animations ─────────────────────────────────────────
+    list.querySelectorAll<HTMLElement>(".voice-item[data-uri]").forEach(el => {
+      const uri = el.dataset.uri!;
+      const prev = before.get(uri);
+      if (!prev) {
+        // New item entering the visible list (e.g. show-more expanded)
+        el.classList.add("voice-item-enter");
+        return;
+      }
+      const curr = el.getBoundingClientRect();
+      const dy = prev.top - curr.top;
+      if (Math.abs(dy) < 1) return; // didn't move
+      // Snap to old position, then transition to natural position
+      el.style.transform  = `translateY(${dy}px)`;
+      el.style.transition = "none";
+      requestAnimationFrame(() => {
+        el.style.transition = "transform .22s cubic-bezier(.25,.46,.45,.94)";
+        el.style.transform  = "translateY(0)";
+        el.addEventListener("transitionend", () => {
+          el.style.transform = ""; el.style.transition = "";
+        }, { once: true });
+      });
+    });
   }
 
   private togglePinVoice(uri: string): void {
     const idx = this.pinnedVoices.indexOf(uri);
     if (idx >= 0) this.pinnedVoices.splice(idx, 1);
-    else this.pinnedVoices.push(uri);
+    else        { this.pinnedVoices.push(uri); this.voiceListExpanded = true; }
     this.saveSettings();
-    if (this.popup === "voice") this.setPopup("voice");
+    this.refreshVoiceList(uri);
   }
 
   private buildSettingsPanel(): HTMLElement {
@@ -1681,7 +1728,9 @@ class LouderWidget {
       btn.textContent = opt;
       btn.addEventListener("click", () => {
         this.themeChoice = opt; this.saveSettings();
-        this.applyThemeVars(); this.setPopup(null);
+        this.applyThemeVars();
+        seg.querySelectorAll<HTMLElement>(".theme-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
       });
       seg.appendChild(btn);
     });
