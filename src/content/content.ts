@@ -24,7 +24,7 @@ type ThemeVars = {
   bg: string; panelBg: string; border: string; divider: string;
   icon: string; iconHover: string; text: string; subtext: string;
   timer: string; closeBg: string; closeBorder: string; trackBg: string;
-  chipBg: string; chipBgHover: string;
+  chipBg: string; chipBgHover: string; panelShadow: string;
   pillBg: string; pillBgHover: string;
 };
 
@@ -38,6 +38,7 @@ const DARK: ThemeVars = {
   closeBg: "#3a3a3e",   closeBorder: "rgba(255,255,255,0.1)",
   trackBg: "rgba(255,255,255,0.1)",
   chipBg: "rgba(255,255,255,0.06)",  chipBgHover: "rgba(255,255,255,0.12)",
+  panelShadow: "0 8px 32px rgba(0,0,0,0.5)",
 };
 
 const LIGHT: ThemeVars = {
@@ -50,6 +51,7 @@ const LIGHT: ThemeVars = {
   closeBg: "#c4c4cc",   closeBorder: "rgba(0,0,0,0.08)",
   trackBg: "rgba(0,0,0,0.11)",
   chipBg: "rgba(0,0,0,0.05)",        chipBgHover: "rgba(0,0,0,0.09)",
+  panelShadow: "0 4px 16px rgba(0,0,0,0.08), 0 12px 36px rgba(0,0,0,0.10)",
 };
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -294,7 +296,7 @@ const SHADOW_CSS = `
 /* ── panel base ── */
 .panel {
   background: var(--panel-bg); border: 1px solid var(--border); border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  box-shadow: var(--panel-shadow);
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   transition: background 0.2s ease;
   animation: popIn .18s cubic-bezier(0.34,1.56,0.64,1) both;
@@ -1159,6 +1161,7 @@ class LouderWidget {
     s.setProperty("--track-bg",      t.trackBg);
     s.setProperty("--chip-bg",       t.chipBg);
     s.setProperty("--chip-bg-hover", t.chipBgHover);
+    s.setProperty("--panel-shadow",  t.panelShadow);
 
     s.setProperty("--pill-bg",       t.pillBg);
     s.setProperty("--pill-bg-hover", t.pillBgHover);
