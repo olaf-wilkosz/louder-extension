@@ -1280,7 +1280,7 @@ class LouderWidget {
     // Read selection
     const readSelBtn = document.createElement("button");
     readSelBtn.className = "icon-btn";
-    readSelBtn.title = "Read selection";
+    readSelBtn.title = "Read it louder!";
     readSelBtn.innerHTML = I.readSel;
     readSelBtn.addEventListener("click", () => {
       const sel = window.getSelection()?.toString().trim();
@@ -1390,6 +1390,7 @@ class LouderWidget {
 
     this.playBtnEl = document.createElement("button");
     this.playBtnEl.className = "play-btn";
+    this.playBtnEl.title = "Play";
     this.playBtnEl.innerHTML = I.play;
     this.playBtnEl.addEventListener("click", () => this.handlePlayClick());
     playWrap.appendChild(this.playBtnEl);

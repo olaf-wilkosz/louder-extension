@@ -1,0 +1,27 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#46edd5"></stop>
+      <stop offset="100%" stop-color="#007d6f"></stop>
+    </linearGradient>
+    <radialGradient id="gh" cx="35%" cy="28%" r="60%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.22"></stop>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"></stop>
+    </radialGradient>
+    <linearGradient id="gbg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1c2e2b"></stop>
+      <stop offset="100%" stop-color="#0d1a18"></stop>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28.16" fill="url(#gbg)"></rect>
+  
+  <g transform="translate(3.58,3.58)" opacity="0.55">
+    <path fill="#004a43" d="M 41.27 14.14 H 86.73 Q 111.36 14.14 111.36 38.77 V 61.2 Q 111.36 85.82 86.73 85.82 H 41.27 Q 16.64 85.82 16.64 61.2 V 38.77 Q 16.64 14.14 41.27 14.14 Z"></path>
+  </g>
+  <path fill="url(#g1)" d="M 41.27 14.14 H 86.73 Q 111.36 14.14 111.36 38.77 V 61.2 Q 111.36 85.82 86.73 85.82 H 67.79 L 54.53 111.42 L 46.95 85.82 H 41.27 Q 16.64 85.82 16.64 61.2 V 38.77 Q 16.64 14.14 41.27 14.14 Z"></path>
+  <path fill="url(#gh)" d="M 41.27 14.14 H 86.73 Q 111.36 14.14 111.36 38.77 V 61.2 Q 111.36 85.82 86.73 85.82 H 67.79 L 54.53 111.42 L 46.95 85.82 H 41.27 Q 16.64 85.82 16.64 61.2 V 38.77 Q 16.64 14.14 41.27 14.14 Z"></path>
+  <rect x="58.55" y="26.33" width="16.64" height="30.82" rx="8.32" fill="#004a43" opacity="0.65"></rect>
+  <circle cx="66.87" cy="70.77" r="10.24" fill="#004a43" opacity="0.65"></circle>
+  <rect x="55.68" y="23.46" width="16.64" height="30.82" rx="8.32" fill="#0a1614"></rect>
+  <circle cx="64" cy="67.9" r="10.24" fill="#0a1614"></circle>
+</svg>

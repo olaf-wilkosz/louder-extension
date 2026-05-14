@@ -1,0 +1,27 @@
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#46edd5"></stop>
+      <stop offset="100%" stop-color="#007d6f"></stop>
+    </linearGradient>
+    <radialGradient id="gh" cx="35%" cy="28%" r="60%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.22"></stop>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"></stop>
+    </radialGradient>
+    <linearGradient id="gbg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1c2e2b"></stop>
+      <stop offset="100%" stop-color="#0d1a18"></stop>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="7.04" fill="url(#gbg)"></rect>
+  
+  <g transform="translate(0.9,0.9)" opacity="0.55">
+    <path fill="#004a43" d="M 10.32 3.54 H 21.68 Q 27.84 3.54 27.84 9.69 V 15.3 Q 27.84 21.46 21.68 21.46 H 10.32 Q 4.16 21.46 4.16 15.3 V 9.69 Q 4.16 3.54 10.32 3.54 Z"></path>
+  </g>
+  <path fill="url(#g1)" d="M 10.32 3.54 H 21.68 Q 27.84 3.54 27.84 9.69 V 15.3 Q 27.84 21.46 21.68 21.46 H 16.95 L 13.63 27.86 L 11.74 21.46 H 10.32 Q 4.16 21.46 4.16 15.3 V 9.69 Q 4.16 3.54 10.32 3.54 Z"></path>
+  <path fill="url(#gh)" d="M 10.32 3.54 H 21.68 Q 27.84 3.54 27.84 9.69 V 15.3 Q 27.84 21.46 21.68 21.46 H 16.95 L 13.63 27.86 L 11.74 21.46 H 10.32 Q 4.16 21.46 4.16 15.3 V 9.69 Q 4.16 3.54 10.32 3.54 Z"></path>
+  <rect x="14.64" y="6.58" width="4.16" height="7.71" rx="2.08" fill="#004a43" opacity="0.65"></rect>
+  <circle cx="16.72" cy="17.69" r="2.56" fill="#004a43" opacity="0.65"></circle>
+  <rect x="13.92" y="5.87" width="4.16" height="7.71" rx="2.08" fill="#0a1614"></rect>
+  <circle cx="16" cy="16.98" r="2.56" fill="#0a1614"></circle>
+</svg>
