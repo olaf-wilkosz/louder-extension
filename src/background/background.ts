@@ -5,7 +5,7 @@ chrome.runtime.onConnect.addListener((_port) => { /* keepalive — no-op */ });
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: "louder-selection",
-    title: "Read selected text with Louder",
+    title: "Read it louder!",
     contexts: ["selection"],
   });
 });
