@@ -18,8 +18,8 @@ copy("manifest.json", "manifest.json");
 
 const iconsOut = path.join(outDir, "icons");
 if (!fs.existsSync(iconsOut)) fs.mkdirSync(iconsOut, { recursive: true });
-for (const size of [16, 32, 48, 128]) {
-  copy(`public/icons/icon${size}.svg`, `icons/icon${size}.svg`);
+for (const size of [16, 48, 128]) {
+  copy(`public/icons/icon${size}.png`, `icons/icon${size}.png`);
 }
 
 esbuild
