@@ -486,14 +486,16 @@ speechSynthesis.addEventListener("voiceschanged", () => {
 /** Detect language from text content. Falls back to page/browser lang. */
 function detectTextLang(text: string): string {
   const sample = text.slice(0, 1500);
-  // Polish diacritics are a near-certain signal — but require enough of them to
-  // avoid false positives from Polish UI text leaking into the extraction.
-  // A real Polish email body will have 10+ per 1500 chars; UI contamination adds ~2-5.
+  // Polish diacritics — scale threshold with text length so short selections
+  // (e.g. "Cześć," with 3 diacritics) are caught without requiring 8+
   const plDiacritics = (sample.match(/[ąęóśżźćńłĄĘÓŚŻŹĆŃŁ]/g) ?? []).length;
-  if (plDiacritics >= 8) return "pl";
-  // English "the" is unique to English
-  if ((sample.toLowerCase().match(/\bthe\b/g) ?? []).length > 2) return "en";
-  // Fall back to page declared lang, then browser lang
+  const plThreshold = sample.length < 200 ? 3 : 8;
+  if (plDiacritics >= plThreshold) return "pl";
+  // English stopwords — unique to English; 2+ in a sentence is reliable
+  const enWords = (sample.toLowerCase()
+    .match(/\b(the|and|of|to|is|it|in|that|you|for|are|was|this|with|have|from|they|be|or|but|not|we|can|an|at|by|as|do|go|if|no|so)\b/g) ?? []).length;
+  if (enWords >= 2) return "en";
+  // Last resort: page declared lang, then browser lang
   const declared = document.documentElement.lang;
   return declared ? declared.split("-")[0].toLowerCase() : navigator.language.split("-")[0].toLowerCase();
 }
@@ -999,7 +1001,7 @@ function startTTS(text?: string, onDone?: () => void): void {
   ttsGeneration++;
   ttsOnDone = onDone; // persist so skip-restarted chains can still call it
   speechSynthesis.cancel(); removeHighlight(); isPaused = false;
-  chrome.storage.local.set({ [PLAYING_OWNER_KEY]: INSTANCE_ID });
+  if (chrome.runtime?.id) chrome.storage.local.set({ [PLAYING_OWNER_KEY]: INSTANCE_ID });
   const raw = text ?? extractText();
   pageFingerprint = text ? "" : raw.slice(0, 120);
   sentences = splitSentences(raw);
@@ -1029,7 +1031,7 @@ function pauseTTS(): void {
 function resumeTTS(onDone?: () => void): void {
   ttsGeneration++;
   ttsOnDone = onDone;
-  chrome.storage.local.set({ [PLAYING_OWNER_KEY]: INSTANCE_ID });
+  if (chrome.runtime?.id) chrome.storage.local.set({ [PLAYING_OWNER_KEY]: INSTANCE_ID });
   if (pageFingerprint) {
     const current = extractText();
     if (current.slice(0, 120) !== pageFingerprint) {
@@ -1170,6 +1172,7 @@ class LouderWidget {
 
   // ── Persistence ───────────────────────────────────────────────────
   private async loadSettings(): Promise<void> {
+    if (!chrome.runtime?.id) return; // extension context invalidated (tab survived a reload)
     return new Promise(resolve => {
       chrome.storage.local.get(
         ["selectedVoiceURI", "speed", "themeChoice", "panelRight", "panelTop", "pinnedVoices", "highlightPreset"],
@@ -1198,6 +1201,7 @@ class LouderWidget {
   }
 
   private saveSettings(): void {
+    if (!chrome.runtime?.id) return;
     chrome.storage.local.set({
       selectedVoiceURI: this.activeVoiceURI,
       speed: this.speed,
@@ -1208,6 +1212,7 @@ class LouderWidget {
   }
 
   private scheduleSavePosition(): void {
+    if (!chrome.runtime?.id) return;
     if (this.saveDebounce) clearTimeout(this.saveDebounce);
     this.saveDebounce = setTimeout(() => {
       chrome.storage.local.set({
@@ -1890,6 +1895,7 @@ class LouderWidget {
     if (this.root) this.root.dataset.state = "collapsed";
     this.setPopup(null);
     this.hideWidget();
+    window.getSelection()?.removeAllRanges(); // E3: clear selection so trigger doesn't re-surface
   }
 
   private setTTSActive(v: boolean): void {
@@ -2037,6 +2043,7 @@ chrome.runtime.onMessage.addListener((msg) => {
 // Cross-tab coordination: when another instance claims TTS ownership,
 // fake-pause this tab so its UI doesn't get stuck in a playing state.
 chrome.storage.onChanged.addListener((changes, area) => {
+  if (!chrome.runtime?.id) return; // context invalidated — ignore
   if (area !== "local" || !changes[PLAYING_OWNER_KEY]) return;
   const newOwner = changes[PLAYING_OWNER_KEY].newValue;
   if (newOwner && newOwner !== INSTANCE_ID && widget) {
@@ -2062,3 +2069,176 @@ function connectKeepalive(): void {
   }
 }
 connectKeepalive();
+
+/* ═══════════════════════════════════════════════════════════════════
+   SELECTION TRIGGER
+   Fixed-position pill near selected text. Outside Shadow DOM so it
+   can position relative to any page selection.
+═══════════════════════════════════════════════════════════════════ */
+
+// ── Icons ────────────────────────────────────────────────────────
+const T_PLAY  = `<svg width="11" height="12" viewBox="0 0 11 12" fill="currentColor"><path d="M2 1.5l8 4.5-8 4.5V1.5z"/></svg>`;
+const T_CLOSE = `<svg width="8" height="8" viewBox="0 0 8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1 1l6 6M7 1L1 7"/></svg>`;
+
+// ── Styles ───────────────────────────────────────────────────────
+(() => {
+  const s = document.createElement("style");
+  s.id = "louder-trigger-style";
+  s.textContent = `
+  #louder-trigger {
+    position: fixed; z-index: 2147483647;
+    display: flex; align-items: center; justify-content: flex-start; gap: 0;
+    background: rgba(0,125,111,0.92);
+    border: 1.5px solid rgba(70,237,213,0.5);
+    border-radius: 100px; height: 32px;
+    box-sizing: border-box !important;
+    box-shadow: 0 2px 10px rgba(0,125,111,0.45);
+    cursor: pointer; user-select: none; white-space: nowrap;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    transition: gap .22s cubic-bezier(.4,0,.2,1), background .18s, box-shadow .18s, opacity .18s;
+    opacity: 0; pointer-events: none;
+  }
+  #louder-trigger[data-side="right"] { flex-direction: row-reverse; }
+  #louder-trigger.lt-on { opacity: 1; pointer-events: auto; }
+  #louder-trigger:hover {
+    background: #1a2d2a; gap: 6px;
+    box-shadow: 0 4px 20px rgba(0,125,111,0.65), 0 0 0 1px rgba(70,237,213,0.25);
+  }
+  /* Padding only on the dismiss side — icon badge fills its edge */
+  #louder-trigger[data-side="left"]:hover  { padding-right: 12px; }
+  #louder-trigger[data-side="right"]:hover { padding-left: 12px; }
+  /* Icon becomes a distinct teal badge — same border as the pill */
+  #louder-trigger:hover #louder-trigger-icon {
+    background: rgba(0,125,111,0.95);
+    border-radius: 50%;
+    box-shadow: 0 0 0 1.5px rgba(70,237,213,0.5);
+  }
+  /* Label hover: bright text + whole pill lights up */
+  #louder-trigger:hover #louder-trigger-label:hover { color: #fff; }
+  #louder-trigger:has(#louder-trigger-label:hover) {
+    background: #243b37;
+    box-shadow: 0 4px 24px rgba(70,237,213,0.3), 0 0 0 1.5px rgba(70,237,213,0.55);
+  }
+  #louder-trigger-icon {
+    color: #fff; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; width: 32px; height: 32px;
+  }
+  #louder-trigger-label {
+    color: #46edd5; font-size: 11.5px; font-weight: 600; line-height: 1; flex-shrink: 0;
+    max-width: 0; overflow: hidden; opacity: 0;
+    transition: max-width .22s cubic-bezier(.4,0,.2,1), opacity .14s .06s, color .18s;
+  }
+  #louder-trigger-dismiss {
+    color: rgba(70,237,213,0.6); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    max-width: 0; overflow: hidden; opacity: 0;
+    transition: max-width .22s cubic-bezier(.4,0,.2,1), opacity .14s .06s, color .12s;
+  }
+  #louder-trigger:hover #louder-trigger-label { max-width: 160px; opacity: 1; }
+  #louder-trigger:hover #louder-trigger-dismiss { max-width: 18px; opacity: 1; }
+  #louder-trigger-dismiss:hover { color: #fff; }
+  #louder-trigger.lt-light:hover { background: #006057; }
+  `;
+  document.head.appendChild(s);
+})();
+
+// ── DOM ──────────────────────────────────────────────────────────
+const tHost    = document.createElement("div");  tHost.id = "louder-trigger";
+const tIcon    = document.createElement("div");  tIcon.id = "louder-trigger-icon";    tIcon.innerHTML = T_PLAY;
+const tLabel   = document.createElement("span"); tLabel.id = "louder-trigger-label";  tLabel.textContent = "Read it louder!";
+const tDismiss = document.createElement("div");  tDismiss.id = "louder-trigger-dismiss"; tDismiss.innerHTML = T_CLOSE;
+tHost.appendChild(tIcon); tHost.appendChild(tLabel); tHost.appendChild(tDismiss);
+document.body.appendChild(tHost);
+
+// ── State ────────────────────────────────────────────────────────
+let tText    = "";
+let tVisible = false;
+let tLastX   = 0;
+let tLastY   = 0;
+document.addEventListener("mousemove", (e: MouseEvent) => { tLastX = e.clientX; tLastY = e.clientY; }, { passive: true });
+
+// ── Helpers ──────────────────────────────────────────────────────
+function tApplyTheme(): void {
+  tHost.classList.toggle("lt-light", !window.matchMedia("(prefers-color-scheme: dark)").matches);
+}
+
+function tPlace(selRect: DOMRect): void {
+  const PAD = 10, W = 32, H = 32;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const mx = tLastX, my = tLastY;
+
+  // Vertical uses selection rect (accurately above/below the text block)
+  // Horizontal uses mouse endpoint (cursor X = where user actually stopped)
+  const hasRect = selRect.width > 0 && selRect.height > 0;
+  const rTop    = hasRect ? selRect.top    : my - 20;
+  const rBottom = hasRect ? selRect.bottom : my + 4;
+
+  // Horizontal: which half of viewport did the cursor end in?
+  const side: "left" | "right" = mx > vw / 2 ? "right" : "left";
+
+  // Vertical: cursor at bottom of selection → trigger below; cursor at top → above
+  const cursorAtBottom = my >= (rTop + rBottom) / 2;
+  let y = cursorAtBottom ? rBottom + PAD : rTop - PAD - H;
+  y = Math.max(0, Math.min(vh - H, y));
+
+  tHost.dataset.side = side;
+  tHost.style.top = `${Math.round(y)}px`;
+
+  if (side === "right") {
+    // Anchor trigger's right edge at cursor X; pill expands leftward (row-reverse)
+    tHost.style.left  = "";
+    tHost.style.right = `${Math.round(Math.max(0, vw - mx))}px`;
+  } else {
+    // Anchor trigger's left edge at cursor X; pill expands rightward
+    tHost.style.right = "";
+    tHost.style.left  = `${Math.round(Math.max(0, mx))}px`;
+  }
+}
+
+function tShow(text: string, selRect: DOMRect): void {
+  tText = text;
+  tApplyTheme();
+  tPlace(selRect);
+  tHost.classList.add("lt-on");
+  tVisible = true;
+}
+
+function tHide(): void {
+  if (!tVisible) return;
+  tHost.classList.remove("lt-on");
+  tVisible = false;
+}
+
+// ── Interactions ─────────────────────────────────────────────────
+// Stop mouseup from bubbling to document — prevents the 60ms timer from
+// re-showing the trigger at the click position after tHide() is called.
+tHost.addEventListener("mouseup", (e: MouseEvent) => e.stopPropagation());
+
+tHost.addEventListener("click", () => {
+  const text = tText;
+  tHide();
+  getWidget().readSelection(text);
+});
+
+tDismiss.addEventListener("click", (e) => {
+  e.stopPropagation();
+  tHide();
+  window.getSelection()?.removeAllRanges();
+});
+
+// ── Detection ────────────────────────────────────────────────────
+document.addEventListener("mouseup", () => {
+  setTimeout(() => {
+    const sel  = window.getSelection();
+    const text = sel?.toString().trim() ?? "";
+    if (text.split(/\s+/).filter(Boolean).length < 2 || !sel?.rangeCount) { tHide(); return; }
+    tShow(text, sel.getRangeAt(0).getBoundingClientRect());
+  }, 60);
+});
+
+document.addEventListener("selectionchange", () => {
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || !sel.toString().trim()) tHide();
+});
+
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", tApplyTheme);
