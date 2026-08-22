@@ -13,7 +13,11 @@ const MIME = {
 
 http.createServer((req, res) => {
   const urlPath = decodeURIComponent(req.url.split("?")[0]);
-  const filePath = path.join(root, urlPath === "/" ? "/landing/index.html" : urlPath);
+  // Serve the real repo-relative path — no rewriting — so the page's own
+  // relative image paths (../public/..., hero.png, etc.) resolve exactly
+  // as they would on a real static host serving the whole repo.
+  if (urlPath === "/") { res.writeHead(302, { Location: "/landing/" }); res.end(); return; }
+  const filePath = path.join(root, urlPath.endsWith("/") ? urlPath + "index.html" : urlPath);
   if (!filePath.startsWith(root)) { res.writeHead(403); res.end(); return; }
   fs.readFile(filePath, (err, data) => {
     if (err) { res.writeHead(404); res.end("Not found"); return; }
