@@ -21,7 +21,11 @@ function Crop($srcName, $outName, $x, $y, $w, $h) {
     Write-Host "OK $outName ($w x $h)"
 }
 
-Crop "03-playing-highlight-hovered.png" "hero.png"              552  0   1168 270
-Crop "08-trigger-hover-hovered.png"     "gallery-trigger.png"   480  520 900  200
-Crop "04-settings-panel-hovered.png"    "gallery-settings.png"  1080 0   1078 260
-Crop "05-voice-picker-hovered.png"      "gallery-voices.png"    1240 0   918  350
+# Hero: widened right edge past the play button (previous crop cut it off).
+Crop "03-playing-highlight-hovered.png" "hero.png"              480  0   1400 280
+
+# Gallery: all three share the same 2:1 crop so they display at a uniform
+# height in the CSS grid, instead of wildly different source aspect ratios.
+Crop "08-trigger-hover-hovered.png"     "gallery-trigger.png"   480  460 760  380
+Crop "04-settings-panel-hovered.png"    "gallery-settings.png"  1080 0   760  380
+Crop "05-voice-picker-hovered.png"      "gallery-voices.png"    1240 0   760  380
