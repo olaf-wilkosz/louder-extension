@@ -744,6 +744,15 @@ let collapsedText   = ""; // searchText with all \s+ → single space (for <br>/
 let collapsedPosMap: number[] = []; // collapsedText[i] → fullText position
 let sentencePos = -1; // start of current sentence in fullText (for word offsets)
 
+// Auto-scroll suppression: track last user-initiated scroll so we don't fight
+// manual scrolling. autoScrolling is true while our own scrollTo animation runs
+// (scroll events during that window are programmatic, not user-initiated).
+let lastUserScrollTime = 0;
+let autoScrolling = false;
+document.addEventListener("scroll", () => {
+  if (!autoScrolling) lastUserScrollTime = Date.now();
+}, { passive: true, capture: true });
+
 /** NodeFilter shared by buildNodeCache() and bodyTextFromNodes().
  *  FILTER_REJECT on hidden elements prunes them AND all their children from
  *  the walk — keeps both functions in sync with what the browser renders,
@@ -881,6 +890,10 @@ function rangeAt(start: number, end: number): Range | null {
 }
 
 function scrollRangeIntoView(range: Range): void {
+  // Back off for 2.5 s after any user-initiated scroll so manual navigation
+  // isn't constantly overridden by the auto-follow.
+  if (Date.now() - lastUserScrollTime < 2500) return;
+
   try {
     const rect = range.getBoundingClientRect();
     if (!rect.width && !rect.height) return; // invisible / not rendered
@@ -893,16 +906,27 @@ function scrollRangeIntoView(range: Range): void {
       scroller = scroller.parentElement;
     }
 
+    // Mark our programmatic scroll so the capture listener doesn't treat it as user scroll.
+    // scrollend clears the flag; timeout is a fallback if the element doesn't actually scroll.
+    const beginAutoScroll = (target: Element | Window) => {
+      autoScrolling = true;
+      const reset = () => { autoScrolling = false; };
+      target.addEventListener("scrollend", reset, { once: true });
+      setTimeout(reset, 1500);
+    };
+
     const margin = 100;
     if (scroller && scroller !== document.documentElement) {
       // Scroll the container pane (e.g. Gmail reading pane)
       const cr = scroller.getBoundingClientRect();
       const relTop = rect.top - cr.top;
       if (relTop >= margin && rect.bottom - cr.top <= cr.height - margin) return;
+      beginAutoScroll(scroller);
       scroller.scrollTo({ top: scroller.scrollTop + relTop - cr.height / 2 + rect.height / 2, behavior: "smooth" });
     } else {
       // Scroll the window
       if (rect.top >= margin && rect.bottom <= window.innerHeight - margin) return;
+      beginAutoScroll(window);
       window.scrollTo({ top: window.scrollY + rect.top - window.innerHeight / 2 + rect.height / 2, behavior: "smooth" });
     }
   } catch { /* stale range */ }
