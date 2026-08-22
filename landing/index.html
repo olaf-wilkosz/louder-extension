@@ -24,7 +24,12 @@
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    background: var(--bg);
+    background:
+      radial-gradient(1100px 620px at 12% -8%, rgba(70,237,213,0.13), transparent 60%),
+      radial-gradient(900px 520px at 100% 8%, rgba(0,125,111,0.16), transparent 55%),
+      radial-gradient(800px 500px at 50% 100%, rgba(70,237,213,0.06), transparent 60%),
+      linear-gradient(180deg, #0a1614 0%, #0d1a18 45%, #09140f 100%);
+    background-attachment: fixed;
     color: var(--text);
     font-family: 'DM Sans', system-ui, sans-serif;
     line-height: 1.5;
@@ -34,12 +39,23 @@
   .wrap { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
 
   header {
-    position: sticky; top: 0; z-index: 10;
-    background: rgba(10,22,20,0.85);
-    backdrop-filter: blur(8px);
-    border-bottom: 1px solid var(--card-border);
+    position: sticky; top: 0; z-index: 50;
+    padding: 14px 0;
   }
-  header .wrap { display: flex; align-items: center; justify-content: space-between; height: 72px; }
+  header .wrap {
+    display: flex; align-items: center; justify-content: space-between; height: 56px;
+    border-radius: 999px; border: 1px solid transparent;
+    background: transparent; backdrop-filter: none;
+    box-shadow: none;
+    transition: background .35s ease, backdrop-filter .35s ease,
+                border-color .35s ease, box-shadow .35s ease;
+  }
+  header.scrolled .wrap {
+    background: rgba(20,35,31,0.7);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border-color: rgba(70,237,213,0.14);
+    box-shadow: 0 10px 34px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,0,0,0.2);
+  }
   .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 20px; }
   .brand img { width: 32px; height: 32px; }
   nav { display: flex; gap: 28px; align-items: center; }
@@ -83,9 +99,11 @@
   .section-head p { color: var(--subtext); font-size: 16px; margin: 0; }
 
   .features {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    display: grid; grid-template-columns: repeat(3, 1fr);
     gap: 20px;
   }
+  @media (max-width: 760px) { .features { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 480px) { .features { grid-template-columns: 1fr; } }
   .feature {
     background: var(--card); border: 1px solid var(--card-border);
     border-radius: var(--radius); padding: 24px;
@@ -219,6 +237,13 @@
     </div>
   </div>
 </footer>
+
+<script>
+  const header = document.querySelector('header');
+  const onScroll = () => header.classList.toggle('scrolled', window.scrollY > 12);
+  onScroll();
+  window.addEventListener('scroll', onScroll, { passive: true });
+</script>
 
 </body>
 </html>
