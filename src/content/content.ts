@@ -915,19 +915,26 @@ function scrollRangeIntoView(range: Range): void {
       setTimeout(reset, 1500);
     };
 
-    const margin = 100;
+    // Always target true vertical center rather than a margin band — a margin
+    // band lets the highlight drift, then jumps a full screen to re-center,
+    // which reads as "page-downing". Centering every sentence instead keeps
+    // a smooth, continuous follow. Skip only when the delta is trivial
+    // (adjacent short sentences landing at nearly the same spot) to avoid jitter.
+    const jitterFloor = 24;
     if (scroller && scroller !== document.documentElement) {
       // Scroll the container pane (e.g. Gmail reading pane)
       const cr = scroller.getBoundingClientRect();
       const relTop = rect.top - cr.top;
-      if (relTop >= margin && rect.bottom - cr.top <= cr.height - margin) return;
+      const delta = relTop - cr.height / 2 + rect.height / 2;
+      if (Math.abs(delta) < jitterFloor) return;
       beginAutoScroll(scroller);
-      scroller.scrollTo({ top: scroller.scrollTop + relTop - cr.height / 2 + rect.height / 2, behavior: "smooth" });
+      scroller.scrollTo({ top: scroller.scrollTop + delta, behavior: "smooth" });
     } else {
       // Scroll the window
-      if (rect.top >= margin && rect.bottom <= window.innerHeight - margin) return;
+      const delta = rect.top - window.innerHeight / 2 + rect.height / 2;
+      if (Math.abs(delta) < jitterFloor) return;
       beginAutoScroll(window);
-      window.scrollTo({ top: window.scrollY + rect.top - window.innerHeight / 2 + rect.height / 2, behavior: "smooth" });
+      window.scrollTo({ top: window.scrollY + delta, behavior: "smooth" });
     }
   } catch { /* stale range */ }
 }
