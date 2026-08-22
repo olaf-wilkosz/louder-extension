@@ -57,7 +57,11 @@
     border-color: rgba(70,237,213,0.14);
     box-shadow: 0 10px 34px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,0,0,0.2);
   }
-  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 20px; }
+  .brand {
+    display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 20px;
+    color: var(--text); text-decoration: none;
+  }
+  .brand:hover { text-decoration: none; opacity: 0.85; }
   .brand img { width: 32px; height: 32px; }
   nav { display: flex; gap: 28px; align-items: center; }
   nav a { color: var(--subtext); font-weight: 500; font-size: 15px; }
@@ -141,7 +145,7 @@
 
 <header>
   <div class="wrap">
-    <div class="brand"><img src="../public/icons/icon128.png" alt=""> Louder</div>
+    <a href="#" class="brand" aria-label="Louder — back to top"><img src="../public/icons/icon128.png" alt=""> Louder</a>
     <nav>
       <a href="#features">Features</a>
       <a href="#screenshots">Screenshots</a>
