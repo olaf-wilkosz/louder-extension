@@ -537,11 +537,16 @@ function gmailBodyText(root: HTMLElement): string {
         if (!lastWasBlock && parts.length) parts.push("\n\n");
         lastWasBlock = true;
       }
-      // Gmail renders email emoji as <img> — capture only emoji alt text
+      // Capture all meaningful alt text — not just emoji. Marketing/newsletter
+      // emails often convey their actual content through images (banners,
+      // buttons, icon rows) with properly authored alt text; skipping
+      // non-emoji alts left those emails reading as nearly empty.
+      // Trailing space guards against alt text running into adjacent text/alt
+      // with no separating whitespace (e.g. icon rows with no gap between <img>s).
       if (el.tagName === "IMG") {
-        const alt = (el as HTMLImageElement).alt ?? "";
-        if (alt && /\p{Extended_Pictographic}/u.test(alt)) {
-          parts.push(alt);
+        const alt = ((el as HTMLImageElement).alt ?? "").trim();
+        if (alt) {
+          parts.push(`${alt} `);
           lastWasBlock = false;
         }
       }
