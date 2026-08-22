@@ -2123,6 +2123,18 @@ connectKeepalive();
 const T_PLAY  = `<svg width="11" height="12" viewBox="0 0 11 12" fill="currentColor"><path d="M2 1.5l8 4.5-8 4.5V1.5z"/></svg>`;
 const T_CLOSE = `<svg width="8" height="8" viewBox="0 0 8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1 1l6 6M7 1L1 7"/></svg>`;
 
+// ── Shadow root ──────────────────────────────────────────────────
+// Trigger lives in a closed shadow root so its label text ("Read it louder!")
+// never surfaces in document.body.innerText / textContent — page-analysis
+// tools (including our own get_page_text-style extractors) read the page's
+// visible text via innerText, which does not cross shadow boundaries. This
+// keeps the trigger pixel-identical on screen while stopping it from being
+// scooped up alongside real page content and misread as an embedded instruction.
+const tRootHost = document.createElement("div");
+tRootHost.id = "louder-trigger-root";
+document.body.appendChild(tRootHost);
+const tShadow = tRootHost.attachShadow({ mode: "closed" });
+
 // ── Styles ───────────────────────────────────────────────────────
 (() => {
   const s = document.createElement("style");
@@ -2182,7 +2194,7 @@ const T_CLOSE = `<svg width="8" height="8" viewBox="0 0 8 8" stroke="currentColo
   #louder-trigger-dismiss:hover { color: #fff; }
   #louder-trigger.lt-light:hover { background: #006057; }
   `;
-  document.head.appendChild(s);
+  tShadow.appendChild(s);
 })();
 
 // ── DOM ──────────────────────────────────────────────────────────
@@ -2191,7 +2203,7 @@ const tIcon    = document.createElement("div");  tIcon.id = "louder-trigger-icon
 const tLabel   = document.createElement("span"); tLabel.id = "louder-trigger-label";  tLabel.textContent = "Read it louder!";
 const tDismiss = document.createElement("div");  tDismiss.id = "louder-trigger-dismiss"; tDismiss.innerHTML = T_CLOSE;
 tHost.appendChild(tIcon); tHost.appendChild(tLabel); tHost.appendChild(tDismiss);
-document.body.appendChild(tHost);
+tShadow.appendChild(tHost);
 
 // ── State ────────────────────────────────────────────────────────
 let tText    = "";
