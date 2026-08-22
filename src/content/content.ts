@@ -816,15 +816,27 @@ function buildNodeCache(): void {
  *          innerText renders as 
  but raw text nodes have no character for. */
 function findSentenceRange(sentence: string): { start: number; end: number } | null {
-  const s = sentence.replace(/ /g, " ");
+  const s = sentence.replace(/ /g, ' ');
+
+  // Search forward from current read position so repeated text (headings,
+  // repeated phrases) highlights the correct occurrence rather than always
+  // jumping back to the first one in the document.
+  const fromPos = Math.max(0, sentencePos);
+
+  // Approximate start offset in collapsedText that corresponds to fromPos.
+  // collapsedPosMap[i] is the fullText position for collapsedText index i.
+  const ci0 = fromPos === 0 ? 0 : collapsedPosMap.findIndex(p => p >= fromPos);
+  const fromCollapsed = ci0 >= 0 ? ci0 : 0;
 
   // Tier 1 — NBSP-normalised exact match
-  let start = searchText.indexOf(s);
+  let start = searchText.indexOf(s, fromPos);
+  if (start < 0) start = searchText.indexOf(s);           // fallback: wrap to start
   if (start >= 0) return { start, end: start + s.length };
 
   // Tier 2 — collapse all whitespace and search collapsed text
-  const sc = s.replace(/\s+/g, " ").trim();
-  const ci = collapsedText.indexOf(sc);
+  const sc = s.replace(/\s+/g, ' ').trim();
+  let ci = collapsedText.indexOf(sc, fromCollapsed);
+  if (ci < 0) ci = collapsedText.indexOf(sc);             // fallback: wrap to start
   if (ci >= 0) {
     start = collapsedPosMap[ci];
     const endCollapsed = ci + sc.length - 1;
@@ -838,11 +850,12 @@ function findSentenceRange(sentence: string): { start: number; end: number } | n
   // rendered as <img> (captured in extraction from alt text) but have no
   // corresponding text node in the DOM for the highlight to land on.
   const se = sc
-    .replace(/\p{Extended_Pictographic}/gu, "") // strip base emoji codepoints
-    .replace(/[\uFE00-\uFE0F\u200D]/g, "")      // strip variation selectors (FE0F etc.) + ZWJ
-    .replace(/\s+/g, " ").trim();
+    .replace(/\p{Extended_Pictographic}/gu, '') // strip base emoji codepoints
+    .replace(/[︀-️‍]/g, '')    // strip variation selectors + ZWJ
+    .replace(/s+/g, ' ').trim();
   if (!se || se === sc) return null; // no emoji present — already failed above
-  const ci3 = collapsedText.indexOf(se);
+  let ci3 = collapsedText.indexOf(se, fromCollapsed);
+  if (ci3 < 0) ci3 = collapsedText.indexOf(se);           // fallback: wrap to start
   if (ci3 < 0) return null;
   start = collapsedPosMap[ci3];
   const endC3 = ci3 + se.length - 1;
@@ -851,7 +864,6 @@ function findSentenceRange(sentence: string): { start: number; end: number } | n
     : fullText.length;
   return { start, end: end3 };
 }
-
 function rangeAt(start: number, end: number): Range | null {
   let sNode: Text | null = null, sOff = 0, eNode: Text | null = null, eOff = 0;
   for (const { node, start: ns } of nodeCache) {
