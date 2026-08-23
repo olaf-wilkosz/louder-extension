@@ -37,10 +37,30 @@ const MARK = `
   <circle cx="64" cy="67.9" r="10.24" fill="#0a1614"></circle>
 </symbol>`;
 
+// Same layered radial-glow treatment as the landing page background
+// (landing/index.html's body { background: radial-gradient(...) }),
+// so the store promo tiles read as part of the same visual system.
+const BG_GRADIENTS = `
+<radialGradient id="glowTL" cx="12%" cy="-10%" r="75%">
+  <stop offset="0%" stop-color="#46edd5" stop-opacity="0.16"></stop>
+  <stop offset="100%" stop-color="#46edd5" stop-opacity="0"></stop>
+</radialGradient>
+<radialGradient id="glowTR" cx="100%" cy="8%" r="65%">
+  <stop offset="0%" stop-color="#007d6f" stop-opacity="0.22"></stop>
+  <stop offset="100%" stop-color="#007d6f" stop-opacity="0"></stop>
+</radialGradient>
+<linearGradient id="bgBase" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="0%" stop-color="#0a1614"></stop>
+  <stop offset="45%" stop-color="#0d1a18"></stop>
+  <stop offset="100%" stop-color="#09140f"></stop>
+</linearGradient>`;
+
 function tile({ width, height, iconSize, iconX, iconY, wordmarkSize, taglineSize, textX, wordmarkY, taglineY, tagline }) {
   return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
-  <defs>${MARK}</defs>
-  <rect width="${width}" height="${height}" fill="#0d1a18"></rect>
+  <defs>${MARK}${BG_GRADIENTS}</defs>
+  <rect width="${width}" height="${height}" fill="url(#bgBase)"></rect>
+  <rect width="${width}" height="${height}" fill="url(#glowTL)"></rect>
+  <rect width="${width}" height="${height}" fill="url(#glowTR)"></rect>
   <use href="#mark" x="${iconX}" y="${iconY}" width="${iconSize}" height="${iconSize}"></use>
   <text x="${textX}" y="${wordmarkY}" font-family="Segoe UI, Arial, sans-serif" font-size="${wordmarkSize}" font-weight="700" fill="#46edd5">Louder</text>
   <text x="${textX}" y="${taglineY}" font-family="Segoe UI, Arial, sans-serif" font-size="${taglineSize}" font-weight="400" fill="#9fb8b3">${tagline}</text>
