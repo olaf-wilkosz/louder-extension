@@ -103,30 +103,147 @@
     border-radius: var(--radius); padding: 32px;
     display: flex; gap: 24px; align-items: flex-start;
   }
+  /* Matches the real extension's .play-btn exactly: solid teal circle,
+     white icon, glow shadow — same in both play and pause state, only
+     the icon glyph swaps. Sized up slightly from the extension's 36px
+     since this stands alone in a card rather than inside a compact bar. */
   .demo-play {
-    flex-shrink: 0; width: 56px; height: 56px; border-radius: 50%;
-    background: var(--accent); color: #06201c; border: none; cursor: pointer;
+    flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%;
+    background: var(--accent); color: #fff; border: none; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 4px 20px rgba(70,237,213,0.3);
-    transition: transform .15s, box-shadow .15s, background .2s, color .2s;
+    box-shadow: 0 0 18px rgba(70,237,213,0.4);
+    transition: filter .15s, transform .12s;
   }
-  .demo-play:hover { transform: scale(1.06); box-shadow: 0 6px 26px rgba(70,237,213,0.45); }
-  .demo-play.playing {
-    background: #1a2d2a; color: var(--accent);
-    border: 1.5px solid rgba(70,237,213,0.5);
-  }
+  .demo-play:hover  { filter: brightness(1.12); }
+  .demo-play:active { transform: scale(0.92); }
   .demo-body { flex: 1; min-width: 0; }
-  .demo-status {
-    display: block; color: var(--subtext); font-size: 12.5px; font-weight: 600;
-    text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px;
+  .demo-toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px 20px; flex-wrap: wrap; margin-bottom: 12px;
   }
-  .demo-text { font-size: 19px; line-height: 1.75; margin: 0; }
+  .demo-status {
+    color: var(--subtext); font-size: 12.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .06em;
+  }
+  .demo-controls { display: flex; align-items: center; gap: 6px; }
+
+  /* Matches the extension's own .icon-btn: transparent circle, tints on
+     hover/active — same treatment as the Settings/Voice/Speed buttons in
+     the real widget bar. */
+  .demo-popover-wrap { position: relative; }
+  .demo-icon-btn {
+    width: 34px; height: 34px; border-radius: 50%; border: none;
+    background: transparent; color: var(--subtext); font-family: inherit;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: background .14s, color .14s;
+  }
+  .demo-icon-btn:hover { background: rgba(255,255,255,0.07); color: var(--text); }
+  .demo-icon-btn.active { background: rgba(70,237,213,0.14); color: var(--accent); }
+  .demo-icon-btn-badge { font-size: 11px; font-weight: 700; }
+
+  /* Floating panel, styled like the extension's Settings/Voice/Speed popovers */
+  /* Anchored by the right edge, not the left — these buttons sit at the
+     right end of the toolbar, so a left-anchored panel pushed its width
+     straight past the card/viewport edge. */
+  .demo-panel {
+    position: absolute; top: calc(100% + 10px); right: 0; z-index: 20;
+    background: #1a2d2a; border: 1px solid rgba(70,237,213,0.18);
+    border-radius: 12px; box-shadow: 0 14px 36px rgba(0,0,0,0.5);
+    padding: 14px; min-width: 220px;
+    max-width: calc(100vw - 48px);
+  }
+  .demo-panel[hidden] { display: none; }
+  .demo-panel-title {
+    font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--subtext); margin-bottom: 10px;
+  }
+  .demo-panel-list {
+    display: flex; flex-direction: column; gap: 2px;
+    max-height: 260px; overflow-y: auto; margin: 0 -6px; padding: 0 6px;
+  }
+  /* Same custom scrollbar treatment as the extension's own .voice-list */
+  .demo-panel-list { scrollbar-width: thin; scrollbar-color: var(--subtext) transparent; }
+  .demo-panel-list::-webkit-scrollbar { width: 4px; }
+  .demo-panel-list::-webkit-scrollbar-track { background: transparent; }
+  .demo-panel-list::-webkit-scrollbar-thumb { background: var(--subtext); border-radius: 2px; }
+  .demo-panel-list::-webkit-scrollbar-thumb:hover { background: var(--text); }
+
+  .demo-voice-row {
+    display: flex; align-items: center; gap: 10px;
+    width: 100%; text-align: left; padding: 7px 10px; border-radius: 10px;
+    border: none; background: transparent; color: var(--text);
+    cursor: pointer; font-family: inherit; font-size: 13px;
+  }
+  .demo-voice-row:hover { background: rgba(255,255,255,0.06); }
+  .demo-voice-row.selected { background: rgba(70,237,213,0.14); color: var(--accent); }
+  .demo-voice-avatar {
+    width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+    background: rgba(255,255,255,0.06); color: var(--subtext);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .demo-voice-row.selected .demo-voice-avatar { background: rgba(70,237,213,0.18); color: var(--accent); }
+  .demo-voice-row-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .demo-voice-row-text span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .demo-voice-row small { color: var(--subtext); font-size: 11px; }
+  .demo-voice-row.selected small { color: inherit; opacity: 0.75; }
+  .demo-voice-empty { padding: 6px 10px; font-size: 12.5px; color: var(--subtext); line-height: 1.5; }
+
+  /* Speed panel — mirrors the extension's own: value+wpm header, a vertical
+     stepped track with +/- buttons, and a column of the discrete speed stops. */
+  .demo-panel-speed { min-width: 0; padding: 14px 16px; }
+  .demo-speed-hdr { text-align: center; margin-bottom: 14px; }
+  .demo-speed-hdr-val { font-size: 20px; font-weight: 700; color: var(--accent); line-height: 1.2; }
+  .demo-speed-hdr-wpm { font-size: 11px; color: var(--subtext); margin-top: 2px; }
+  .demo-speed-body { display: flex; align-items: stretch; gap: 14px; }
+  .demo-speed-track-col {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+  }
+  .demo-step-btn {
+    width: 22px; height: 22px; border-radius: 50%; border: none;
+    background: rgba(255,255,255,0.07); color: var(--text);
+    font-size: 14px; line-height: 1; cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .12s;
+  }
+  .demo-step-btn:hover { background: rgba(255,255,255,0.14); }
+  /* Vertical range input — standard writing-mode approach (Chrome/Edge/Firefox).
+     Indexes into SPEED_STOPS_ASC (slowest→fastest) so a higher input value —
+     which writing-mode + direction:rtl renders higher up — means faster,
+     matching the extension's own speed panel (faster = higher on the slider). */
+  #demoSpeedPanel input[type="range"] {
+    writing-mode: vertical-lr; direction: rtl;
+    width: 6px; height: 150px; accent-color: var(--accent);
+  }
+  .demo-speed-labels {
+    display: flex; flex-direction: column; justify-content: space-between;
+    align-items: flex-start; padding: 2px 0;
+  }
+  .demo-speed-label {
+    border: none; background: none; color: var(--subtext); cursor: pointer;
+    font-family: inherit; font-size: 11.5px; padding: 1px 4px; border-radius: 4px;
+    transition: color .12s, background .12s;
+  }
+  .demo-speed-label:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+  .demo-speed-label.active { color: var(--accent); font-weight: 700; }
+
+  .demo-text {
+    font-size: 19px; line-height: 1.75; margin: 0;
+    border-radius: 8px; padding: 4px 6px; margin: -4px -6px;
+  }
+  .demo-text[contenteditable="true"] { cursor: text; }
+  .demo-text[contenteditable="true"]:focus {
+    outline: none; background: rgba(255,255,255,0.02);
+    box-shadow: 0 0 0 2px rgba(70,237,213,0.25);
+  }
+  .demo-text[contenteditable="false"] { cursor: default; }
+  .demo-hint { display: block; margin-top: 10px; font-size: 12.5px; color: var(--subtext); }
   .demo-sentence { border-radius: 5px; transition: background .2s; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
   .demo-sentence.active { background: rgba(70,237,213,0.09); }
   .demo-word { border-radius: 3px; transition: background .1s, color .1s; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
   .demo-word.active { background: var(--accent); color: #06201c; }
   @media (max-width: 640px) {
     .demo-card { flex-direction: column; align-items: center; text-align: center; }
+    .demo-toolbar { justify-content: center; text-align: left; }
   }
 
   section { padding: 64px 0; scroll-margin-top: 90px; }
@@ -212,8 +329,41 @@
         <svg id="demoPauseIcon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="display:none"><rect x="3" y="2" width="4" height="12" rx="1"/><rect x="9" y="2" width="4" height="12" rx="1"/></svg>
       </button>
       <div class="demo-body">
-        <span id="demoStatus" class="demo-status">Press play to listen</span>
-        <p id="demoText" class="demo-text"></p>
+        <div class="demo-toolbar">
+          <span id="demoStatus" class="demo-status">Press play to listen</span>
+          <div class="demo-controls">
+            <div class="demo-popover-wrap">
+              <button id="demoVoiceBtn" class="demo-icon-btn" aria-haspopup="true" aria-expanded="false" aria-label="Voice">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35"><circle cx="8" cy="5.5" r="2.5"/><path d="M2.5 14c0-3.04 2.46-5.5 5.5-5.5s5.5 2.46 5.5 5.5" stroke-linecap="round"/></svg>
+              </button>
+              <div id="demoVoicePanel" class="demo-panel" hidden>
+                <div class="demo-panel-title">Voice</div>
+                <div id="demoVoiceList" class="demo-panel-list"></div>
+              </div>
+            </div>
+            <div class="demo-popover-wrap">
+              <button id="demoSpeedBtn" class="demo-icon-btn demo-icon-btn-badge" aria-haspopup="true" aria-expanded="false" aria-label="Speed">
+                <span id="demoSpeedBadge">1×</span>
+              </button>
+              <div id="demoSpeedPanel" class="demo-panel demo-panel-speed" hidden>
+                <div class="demo-speed-hdr">
+                  <div id="demoSpeedValue" class="demo-speed-hdr-val">1×</div>
+                  <div id="demoSpeedWpm" class="demo-speed-hdr-wpm">180 wpm</div>
+                </div>
+                <div class="demo-speed-body">
+                  <div class="demo-speed-track-col">
+                    <button id="demoSpeedUp" type="button" class="demo-step-btn" aria-label="Faster">+</button>
+                    <input id="demoSpeed" type="range" min="0" max="8" step="1" value="3" aria-label="Playback speed" aria-orientation="vertical">
+                    <button id="demoSpeedDown" type="button" class="demo-step-btn" aria-label="Slower">−</button>
+                  </div>
+                  <div id="demoSpeedLabels" class="demo-speed-labels"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p id="demoText" class="demo-text" contenteditable="true" spellcheck="false"></p>
+        <span class="demo-hint">Click the text to edit it, or paste your own — then press play.</span>
       </div>
     </div>
   </div>
@@ -313,21 +463,138 @@
   const playIcon = document.getElementById('demoPlayIcon');
   const pauseIcon = document.getElementById('demoPauseIcon');
 
-  // Voice list loads asynchronously in most browsers — cache it and keep it
-  // fresh so the English voice lookup in playDemo() isn't racing an empty list.
+  const voiceBtn = document.getElementById('demoVoiceBtn');
+  const voicePanel = document.getElementById('demoVoicePanel');
+  const voiceListEl = document.getElementById('demoVoiceList');
+  const speedBtn = document.getElementById('demoSpeedBtn');
+  const speedPanel = document.getElementById('demoSpeedPanel');
+  const speedBadge = document.getElementById('demoSpeedBadge');
+  const speedValueEl = document.getElementById('demoSpeedValue');
+  const speedInput = document.getElementById('demoSpeed');
+
+  // ── Popovers: same one-open-at-a-time behavior as the extension's own
+  // Settings/Voice/Speed buttons — opening one closes the other, and
+  // clicking outside or pressing Escape closes whichever is open.
+  function closePanels() {
+    voicePanel.hidden = true; voiceBtn.classList.remove('active'); voiceBtn.setAttribute('aria-expanded', 'false');
+    speedPanel.hidden = true; speedBtn.classList.remove('active'); speedBtn.setAttribute('aria-expanded', 'false');
+  }
+  function togglePanel(btn, panel) {
+    const opening = panel.hidden;
+    closePanels();
+    if (opening) {
+      panel.hidden = false;
+      btn.classList.add('active');
+      btn.setAttribute('aria-expanded', 'true');
+    }
+  }
+  voiceBtn.addEventListener('click', e => { e.stopPropagation(); togglePanel(voiceBtn, voicePanel); });
+  speedBtn.addEventListener('click', e => { e.stopPropagation(); togglePanel(speedBtn, speedPanel); });
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.demo-popover-wrap')) closePanels();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanels(); });
+
+  let selectedVoiceKey = '';
+  function voiceKey(v) { return `${v.name}|${v.lang}`; }
+
+  // Voice list loads asynchronously in most browsers — cache it and re-render
+  // the panel so it isn't stuck empty or racing an empty list. Some browsers
+  // (privacy-focused ones, headless/minimal setups) never report any voices
+  // at all, so the panel always shows *something* meaningful either way.
   let demoVoices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+  function renderVoiceList() {
+    voiceListEl.innerHTML = '';
+    if (!demoVoices.length) {
+      const msg = document.createElement('div');
+      msg.className = 'demo-voice-empty';
+      msg.textContent = "No voices detected on this device — playback will use your browser's default voice.";
+      voiceListEl.appendChild(msg);
+      return;
+    }
+    const sorted = [...demoVoices].sort((a, b) => a.lang.localeCompare(b.lang) || a.name.localeCompare(b.name));
+    if (!selectedVoiceKey || !sorted.some(v => voiceKey(v) === selectedVoiceKey)) {
+      const enVoice = sorted.find(v => v.lang.toLowerCase().startsWith('en'));
+      selectedVoiceKey = voiceKey(enVoice || sorted[0]);
+    }
+    sorted.forEach(v => {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'demo-voice-row' + (voiceKey(v) === selectedVoiceKey ? ' selected' : '');
+      row.innerHTML = `<span class="demo-voice-avatar"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35"><circle cx="8" cy="5.5" r="2.5"/><path d="M2.5 14c0-3.04 2.46-5.5 5.5-5.5s5.5 2.46 5.5 5.5" stroke-linecap="round"/></svg></span>`
+        + `<span class="demo-voice-row-text"><span>${v.name}</span><small>${v.lang}</small></span>`;
+      row.addEventListener('click', () => {
+        selectedVoiceKey = voiceKey(v);
+        renderVoiceList();
+        closePanels();
+      });
+      voiceListEl.appendChild(row);
+    });
+  }
+  renderVoiceList();
   if (window.speechSynthesis) {
     window.speechSynthesis.addEventListener('voiceschanged', () => {
       demoVoices = window.speechSynthesis.getVoices();
+      renderVoiceList();
     });
   }
 
+  // Same discrete stops and base rate as the extension (content.ts:
+  // SPEED_STOPS / BASE_WPM) — fastest-to-slowest for display, reversed for
+  // the slider itself since a higher <input> value renders higher up under
+  // writing-mode:vertical-lr + direction:rtl, and "up" should mean "faster".
+  const SPEED_STOPS = [5, 4, 3, 2, 1.5, 1, 0.75, 0.5, 0.25];
+  const SPEED_STOPS_ASC = [...SPEED_STOPS].reverse();
+  const BASE_WPM = 180;
+
+  const speedWpmEl = document.getElementById('demoSpeedWpm');
+  const speedLabelsEl = document.getElementById('demoSpeedLabels');
+  const speedUpBtn = document.getElementById('demoSpeedUp');
+  const speedDownBtn = document.getElementById('demoSpeedDown');
+
+  function currentSpeed() { return SPEED_STOPS_ASC[+speedInput.value]; }
+
+  SPEED_STOPS.forEach(s => {
+    const lbl = document.createElement('button');
+    lbl.type = 'button';
+    lbl.className = 'demo-speed-label';
+    lbl.textContent = `${s}×`;
+    lbl.addEventListener('click', () => {
+      speedInput.value = SPEED_STOPS_ASC.indexOf(s);
+      updateSpeedLabel();
+    });
+    speedLabelsEl.appendChild(lbl);
+  });
+
+  function updateSpeedLabel() {
+    const s = currentSpeed();
+    const label = `${s}×`;
+    speedBadge.textContent = label;
+    speedValueEl.textContent = label;
+    speedWpmEl.textContent = `${Math.round(s * BASE_WPM)} wpm`;
+    speedLabelsEl.querySelectorAll('.demo-speed-label').forEach(lbl => {
+      lbl.classList.toggle('active', lbl.textContent === label);
+    });
+  }
+  speedInput.addEventListener('input', updateSpeedLabel);
+  speedUpBtn.addEventListener('click', () => {
+    speedInput.value = Math.min(8, +speedInput.value + 1);
+    updateSpeedLabel();
+  });
+  speedDownBtn.addEventListener('click', () => {
+    speedInput.value = Math.max(0, +speedInput.value - 1);
+    updateSpeedLabel();
+  });
+  updateSpeedLabel();
+
   // Split into sentences, then words, wrapping each in a span with its
-  // [start,end) offset into DEMO_TEXT so onboundary's charIndex can be
-  // mapped straight back to a DOM node — same approach the extension's
+  // [start,end) offset into the source text so onboundary's charIndex can
+  // be mapped straight back to a DOM node — same approach the extension's
   // CSS Highlight API lookup uses, just via <span> instead of Highlight().
-  function buildDemoDom() {
-    const sentences = DEMO_TEXT.match(/[^.!?]+[.!?]+(\s+|$)/g) || [DEMO_TEXT];
+  // Takes the *current* text (default sample or whatever the visitor typed)
+  // rather than a fixed constant, since the box is editable.
+  function buildDemoDom(text) {
+    const sentences = text.match(/[^.!?]+[.!?]+(\s+|$)/g) || [text];
     let offset = 0;
     demoTextEl.innerHTML = '';
     sentences.forEach(sentence => {
@@ -350,7 +617,7 @@
       demoTextEl.appendChild(sEl);
     });
   }
-  buildDemoDom();
+  buildDemoDom(DEMO_TEXT);
 
   function clearDemoHighlight() {
     demoTextEl.querySelectorAll('.demo-word.active, .demo-sentence.active')
@@ -375,6 +642,7 @@
     playIcon.style.display = ''; pauseIcon.style.display = 'none';
     demoStatusEl.textContent = 'Press play to listen';
     clearDemoHighlight();
+    demoTextEl.contentEditable = 'true';
   }
 
   function playDemo() {
@@ -382,18 +650,32 @@
       demoStatusEl.textContent = "Your browser doesn't support speech synthesis";
       return;
     }
+    const text = (demoTextEl.textContent || '').trim();
+    if (!text) { demoStatusEl.textContent = 'Type something to read first'; return; }
+
     window.speechSynthesis.cancel();
-    const utt = new SpeechSynthesisUtterance(DEMO_TEXT);
-    utt.rate = 0.95;
-    // The sample text is English — without an explicit lang/voice, browsers
-    // fall back to the OS/system language (e.g. Polish), not the text's
-    // actual language, and mispronounce everything.
-    utt.lang = 'en-US';
-    const enVoice = demoVoices.find(v => v.lang.toLowerCase().startsWith('en'));
-    if (enVoice) utt.voice = enVoice;
+    buildDemoDom(text); // rebuild spans from whatever's in the box right now
+    demoTextEl.contentEditable = 'false'; // offsets would desync if edited mid-read
+
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.rate = currentSpeed();
+
+    const chosen = demoVoices.find(v => voiceKey(v) === selectedVoiceKey);
+    if (chosen) {
+      utt.voice = chosen;
+      utt.lang = chosen.lang;
+    } else {
+      // No selection yet (voices still loading) — fall back to English so the
+      // default sample text doesn't get read in the browser's system language.
+      utt.lang = 'en-US';
+      const enVoice = demoVoices.find(v => v.lang.toLowerCase().startsWith('en'));
+      if (enVoice) utt.voice = enVoice;
+    }
+
     utt.onboundary = e => { if (e.name === 'word') highlightDemoAt(e.charIndex); };
     utt.onend = resetDemoUI;
     utt.onerror = resetDemoUI;
+    closePanels();
     window.speechSynthesis.speak(utt);
     demoPlayBtn.classList.add('playing');
     playIcon.style.display = 'none'; pauseIcon.style.display = '';
