@@ -97,7 +97,11 @@
   .doc li { margin-bottom: 4px; }
   .doc strong { color: var(--accent); }
 
-  .perm-table { width: 100%; border-collapse: collapse; margin: 8px 0 14px; font-size: 14px; }
+  /* Table has a wide first column (white-space:nowrap for the permission
+     names) — on narrow viewports it doesn't fit, so it scrolls within its
+     own container instead of forcing the whole page to overflow. */
+  .table-scroll { overflow-x: auto; margin: 8px 0 14px; }
+  .perm-table { width: 100%; min-width: 480px; border-collapse: collapse; font-size: 14px; }
   .perm-table th, .perm-table td {
     text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--card-border);
   }
@@ -165,13 +169,15 @@
       <p>Louder does not include analytics, trackers, or advertising of any kind. No data is sold or shared with third parties, because none is collected in the first place.</p>
 
       <h2>Permissions, explained</h2>
-      <table class="perm-table">
-        <tr><th>Permission</th><th>Why Louder needs it</th></tr>
-        <tr><td>storage</td><td>Save your preferences locally (see above)</td></tr>
-        <tr><td>activeTab / scripting</td><td>Read the current page's text and display the widget when you use Louder</td></tr>
-        <tr><td>contextMenus</td><td>Add the "Read it louder!" right-click menu item</td></tr>
-        <tr><td>host_permissions: &lt;all_urls&gt;</td><td>Let Louder work on any page you choose to read, rather than a fixed list of sites</td></tr>
-      </table>
+      <div class="table-scroll">
+        <table class="perm-table">
+          <tr><th>Permission</th><th>Why Louder needs it</th></tr>
+          <tr><td>storage</td><td>Save your preferences locally (see above)</td></tr>
+          <tr><td>activeTab / scripting</td><td>Read the current page's text and display the widget when you use Louder</td></tr>
+          <tr><td>contextMenus</td><td>Add the "Read it louder!" right-click menu item</td></tr>
+          <tr><td>host_permissions: &lt;all_urls&gt;</td><td>Let Louder work on any page you choose to read, rather than a fixed list of sites</td></tr>
+        </table>
+      </div>
 
       <h2>Changes to this policy</h2>
       <p>If this policy changes, the update will be reflected here with a new "Last updated" date.</p>
