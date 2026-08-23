@@ -336,7 +336,7 @@
               <button id="demoVoiceBtn" class="demo-icon-btn" aria-haspopup="true" aria-expanded="false" aria-label="Voice">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35"><circle cx="8" cy="5.5" r="2.5"/><path d="M2.5 14c0-3.04 2.46-5.5 5.5-5.5s5.5 2.46 5.5 5.5" stroke-linecap="round"/></svg>
               </button>
-              <div id="demoVoicePanel" class="demo-panel" hidden>
+              <div id="demoVoicePanel" class="demo-panel" role="dialog" aria-label="Voice" tabindex="-1" hidden>
                 <div class="demo-panel-title">Voice</div>
                 <div id="demoVoiceList" class="demo-panel-list"></div>
               </div>
@@ -345,7 +345,7 @@
               <button id="demoSpeedBtn" class="demo-icon-btn demo-icon-btn-badge" aria-haspopup="true" aria-expanded="false" aria-label="Speed">
                 <span id="demoSpeedBadge">1×</span>
               </button>
-              <div id="demoSpeedPanel" class="demo-panel demo-panel-speed" hidden>
+              <div id="demoSpeedPanel" class="demo-panel demo-panel-speed" role="dialog" aria-label="Speed" tabindex="-1" hidden>
                 <div class="demo-speed-hdr">
                   <div id="demoSpeedValue" class="demo-speed-hdr-val">1×</div>
                   <div id="demoSpeedWpm" class="demo-speed-hdr-wpm">180 wpm</div>
@@ -362,7 +362,8 @@
             </div>
           </div>
         </div>
-        <p id="demoText" class="demo-text" contenteditable="true" spellcheck="false"></p>
+        <p id="demoText" class="demo-text" contenteditable="true" spellcheck="false"
+           role="textbox" aria-multiline="true" aria-label="Sample text to read aloud — editable"></p>
         <span class="demo-hint">Click the text to edit it, or paste your own — then press play.</span>
       </div>
     </div>
@@ -473,27 +474,33 @@
   const speedInput = document.getElementById('demoSpeed');
 
   // ── Popovers: same one-open-at-a-time behavior as the extension's own
-  // Settings/Voice/Speed buttons — opening one closes the other, and
-  // clicking outside or pressing Escape closes whichever is open.
-  function closePanels() {
+  // Settings/Voice/Speed buttons — opening one closes the other, clicking
+  // outside or pressing Escape closes whichever is open, and (Escape/item
+  // selection only) focus returns to whichever button opened it — a
+  // keyboard user shouldn't lose their place when a popup closes.
+  let lastPanelTrigger = null;
+  function closePanels(returnFocus) {
     voicePanel.hidden = true; voiceBtn.classList.remove('active'); voiceBtn.setAttribute('aria-expanded', 'false');
     speedPanel.hidden = true; speedBtn.classList.remove('active'); speedBtn.setAttribute('aria-expanded', 'false');
+    if (returnFocus && lastPanelTrigger) lastPanelTrigger.focus();
   }
   function togglePanel(btn, panel) {
     const opening = panel.hidden;
-    closePanels();
+    closePanels(false);
     if (opening) {
       panel.hidden = false;
       btn.classList.add('active');
       btn.setAttribute('aria-expanded', 'true');
+      lastPanelTrigger = btn;
+      panel.focus();
     }
   }
   voiceBtn.addEventListener('click', e => { e.stopPropagation(); togglePanel(voiceBtn, voicePanel); });
   speedBtn.addEventListener('click', e => { e.stopPropagation(); togglePanel(speedBtn, speedPanel); });
   document.addEventListener('click', e => {
-    if (!e.target.closest('.demo-popover-wrap')) closePanels();
+    if (!e.target.closest('.demo-popover-wrap')) closePanels(false);
   });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanels(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanels(true); });
 
   let selectedVoiceKey = '';
   function voiceKey(v) { return `${v.name}|${v.lang}`; }
@@ -526,7 +533,7 @@
       row.addEventListener('click', () => {
         selectedVoiceKey = voiceKey(v);
         renderVoiceList();
-        closePanels();
+        closePanels(true);
       });
       voiceListEl.appendChild(row);
     });
@@ -639,6 +646,7 @@
 
   function resetDemoUI() {
     demoPlayBtn.classList.remove('playing');
+    demoPlayBtn.setAttribute('aria-label', 'Play demo');
     playIcon.style.display = ''; pauseIcon.style.display = 'none';
     demoStatusEl.textContent = 'Press play to listen';
     clearDemoHighlight();
@@ -675,9 +683,10 @@
     utt.onboundary = e => { if (e.name === 'word') highlightDemoAt(e.charIndex); };
     utt.onend = resetDemoUI;
     utt.onerror = resetDemoUI;
-    closePanels();
+    closePanels(false);
     window.speechSynthesis.speak(utt);
     demoPlayBtn.classList.add('playing');
+    demoPlayBtn.setAttribute('aria-label', 'Pause demo');
     playIcon.style.display = 'none'; pauseIcon.style.display = '';
     demoStatusEl.textContent = 'Reading…';
   }
