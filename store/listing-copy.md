@@ -50,4 +50,4 @@ Productivity (or Accessibility, if Chrome Web Store splits it out)
 - [x] Screenshots — `screenshots/01` through `05` (1280×800, no alpha)
 - [x] Small promo tile — `promo-small-440x280.png`
 - [x] Marquee promo tile — `promo-marquee-1400x560.png`
-- [x] Privacy policy URL — `https://github.com/olaf-wilkosz/louder-extension/blob/master/PRIVACY.md` (required by both Chrome Web Store and Firefox AMO given the `<all_urls>` host permission)
+- [x] Privacy policy URL — `https://olaf-wilkosz.github.io/louder-extension/landing/privacy.html` (required by both Chrome Web Store and Firefox AMO given the `<all_urls>` host permission)

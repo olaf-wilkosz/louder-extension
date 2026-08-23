@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — Louder</title>
+<meta name="description" content="Louder's privacy policy: what data is stored, where, and why. Short answer — everything stays local, nothing is transmitted.">
+<link rel="icon" href="../public/icons/icon32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --accent: #46edd5;
+    --accent-dim: #007d6f;
+    --bg: #0a1614;
+    --bg-2: #0d1a18;
+    --card: #14231f;
+    --card-border: #1f3530;
+    --text: #eaf5f3;
+    --subtext: #8fa8a3;
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(1100px 620px at 12% -8%, rgba(70,237,213,0.13), transparent 60%),
+      radial-gradient(900px 520px at 100% 8%, rgba(0,125,111,0.16), transparent 55%),
+      radial-gradient(800px 500px at 50% 100%, rgba(70,237,213,0.06), transparent 60%),
+      linear-gradient(180deg, #0a1614 0%, #0d1a18 45%, #09140f 100%);
+    background-attachment: fixed;
+    color: var(--text);
+    font-family: 'DM Sans', system-ui, sans-serif;
+    line-height: 1.5;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+  header {
+    position: sticky; top: 0; z-index: 50;
+    padding: 14px 0;
+  }
+  header .wrap {
+    display: flex; align-items: center; justify-content: space-between; height: 56px;
+    border-radius: 999px; border: 1px solid transparent;
+    background: transparent; backdrop-filter: none;
+    box-shadow: none;
+    transition: background .35s ease, backdrop-filter .35s ease,
+                border-color .35s ease, box-shadow .35s ease;
+  }
+  header.scrolled .wrap {
+    background: rgba(20,35,31,0.7);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border-color: rgba(70,237,213,0.14);
+    box-shadow: 0 10px 34px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,0,0,0.2);
+  }
+  .brand {
+    display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 20px;
+    color: var(--text); text-decoration: none;
+  }
+  .brand:hover { text-decoration: none; opacity: 0.85; }
+  .brand img { width: 32px; height: 32px; }
+  nav { display: flex; gap: 28px; align-items: center; }
+  nav a { color: var(--subtext); font-weight: 500; font-size: 15px; }
+  nav a:hover { color: var(--text); text-decoration: none; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--accent); color: #06201c;
+    font-weight: 700; font-size: 15px;
+    padding: 11px 20px; border-radius: 999px;
+    transition: transform .15s, box-shadow .15s;
+    box-shadow: 0 4px 20px rgba(70,237,213,0.25);
+  }
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 26px rgba(70,237,213,0.4); text-decoration: none; }
+  .btn-ghost {
+    background: transparent; color: var(--text);
+    border: 1px solid var(--card-border); box-shadow: none;
+  }
+  .btn-ghost:hover { border-color: var(--accent); box-shadow: none; }
+
+  main { padding: 64px 0 80px; }
+  .doc-hdr { margin-bottom: 40px; }
+  .doc-hdr h1 { font-size: clamp(30px, 5vw, 42px); font-weight: 800; margin: 0 0 10px; letter-spacing: -0.01em; }
+  .doc-hdr p { color: var(--subtext); font-size: 15px; margin: 0; }
+
+  .doc {
+    background: var(--card); border: 1px solid var(--card-border);
+    border-radius: var(--radius); padding: 40px;
+    max-width: 760px;
+  }
+  .doc h2 { font-size: 19px; font-weight: 700; margin: 32px 0 12px; }
+  .doc h2:first-child { margin-top: 0; }
+  .doc p { color: var(--text); font-size: 15px; line-height: 1.75; margin: 0 0 14px; }
+  .doc ul { margin: 0 0 14px; padding-left: 22px; color: var(--text); font-size: 15px; line-height: 1.75; }
+  .doc li { margin-bottom: 4px; }
+  .doc strong { color: var(--accent); }
+
+  .perm-table { width: 100%; border-collapse: collapse; margin: 8px 0 14px; font-size: 14px; }
+  .perm-table th, .perm-table td {
+    text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--card-border);
+  }
+  .perm-table th { color: var(--subtext); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  .perm-table td:first-child { font-family: 'SFMono-Regular', Consolas, monospace; color: var(--accent); white-space: nowrap; }
+
+  footer {
+    border-top: 1px solid var(--card-border);
+    padding: 40px 0; text-align: center;
+    color: var(--subtext); font-size: 14px;
+  }
+  footer .brand { justify-content: center; margin-bottom: 12px; }
+  footer .links { display: flex; gap: 20px; justify-content: center; margin-top: 14px; }
+
+  @media (max-width: 640px) {
+    nav a:not(.btn) { display: none; }
+    .doc { padding: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a href="index.html" class="brand" aria-label="Louder — home"><img src="../public/icons/icon128.png" alt=""> Louder</a>
+    <nav>
+      <a href="index.html#demo">Demo</a>
+      <a href="index.html#features">Features</a>
+      <a href="https://github.com/olaf-wilkosz/louder-extension" class="btn btn-ghost">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <div class="doc-hdr">
+      <h1>Privacy Policy</h1>
+      <p>Last updated: 2026-08-23</p>
+    </div>
+
+    <div class="doc">
+      <h2>Summary</h2>
+      <p>Louder does not collect, transmit, sell, or share any of your data. Everything it does happens locally, in your browser, on your device.</p>
+
+      <h2>What Louder stores, and where</h2>
+      <p>Louder saves a small set of preferences using your browser's built-in <code>chrome.storage.local</code> API:</p>
+      <ul>
+        <li>Selected voice</li>
+        <li>Playback speed</li>
+        <li>Theme (dark / light / system)</li>
+        <li>Pinned voices</li>
+        <li>Highlight color preset</li>
+        <li>Widget's on-screen position</li>
+      </ul>
+      <p>This data is stored <strong>only on your own device</strong>. It is never transmitted anywhere — not to us, not to any third party. We don't operate a server, and Louder makes no network requests of its own.</p>
+
+      <h2>Page content</h2>
+      <p>To read a page or selection aloud, Louder's content script reads the visible text of the page you're on (or the text you've selected) entirely within your browser, to pass it to the Web Speech API for synthesis and to compute word/sentence highlight positions. This text is processed in memory and is never stored, logged, or sent anywhere by Louder.</p>
+      <p>Louder requests broad host permissions (<code>&lt;all_urls&gt;</code>) because it needs to work on any page you choose to read — not to collect data from those pages. It does not track your browsing, build a history, or read pages you haven't asked it to read.</p>
+
+      <h2>Text-to-speech voices</h2>
+      <p>Louder uses your browser's native Web Speech API (<code>speechSynthesis</code>) to generate audio. Depending on your operating system and browser, some voices are processed entirely on-device, while others (particularly certain browser-provided voices) may be processed by your browser vendor's own servers — this is standard behavior of the Web Speech API and outside Louder's control. Louder itself never sends text to any server. Check your browser's own privacy policy if you want details on how it handles voices that aren't fully on-device.</p>
+
+      <h2>Third parties</h2>
+      <p>Louder does not include analytics, trackers, or advertising of any kind. No data is sold or shared with third parties, because none is collected in the first place.</p>
+
+      <h2>Permissions, explained</h2>
+      <table class="perm-table">
+        <tr><th>Permission</th><th>Why Louder needs it</th></tr>
+        <tr><td>storage</td><td>Save your preferences locally (see above)</td></tr>
+        <tr><td>activeTab / scripting</td><td>Read the current page's text and display the widget when you use Louder</td></tr>
+        <tr><td>contextMenus</td><td>Add the "Read it louder!" right-click menu item</td></tr>
+        <tr><td>host_permissions: &lt;all_urls&gt;</td><td>Let Louder work on any page you choose to read, rather than a fixed list of sites</td></tr>
+      </table>
+
+      <h2>Changes to this policy</h2>
+      <p>If this policy changes, the update will be reflected here with a new "Last updated" date.</p>
+
+      <h2>Contact</h2>
+      <p>Questions or concerns? Open an issue at <a href="https://github.com/olaf-wilkosz/louder-extension/issues">github.com/olaf-wilkosz/louder-extension</a>.</p>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="brand"><img src="../public/icons/icon32.png" alt="" width="20" height="20"> Louder</div>
+    <div>Distraction-free text-to-speech reader for the browser.</div>
+    <div class="links">
+      <a href="https://github.com/olaf-wilkosz/louder-extension">GitHub</a>
+      <a href="index.html">Home</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  const header = document.querySelector('header');
+  const onScroll = () => header.classList.toggle('scrolled', window.scrollY > 12);
+  onScroll();
+  window.addEventListener('scroll', onScroll, { passive: true });
+</script>
+
+</body>
+</html>

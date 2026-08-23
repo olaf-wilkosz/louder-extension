@@ -53,7 +53,7 @@ The codebase is TypeScript + esbuild, no frameworks. The widget lives entirely i
 
 ## Privacy
 
-Louder stores your preferences locally and never transmits any data. See [PRIVACY.md](PRIVACY.md) for details.
+Louder stores your preferences locally and never transmits any data. See the [Privacy Policy](https://olaf-wilkosz.github.io/louder-extension/landing/privacy.html) for details.
 
 ## License
 
