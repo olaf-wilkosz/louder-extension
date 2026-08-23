@@ -51,6 +51,10 @@ After any change, rebuild and reload the extension from `chrome://extensions` (o
 
 The codebase is TypeScript + esbuild, no frameworks. The widget lives entirely in a Shadow DOM for CSS isolation; the selection trigger lives in its own closed Shadow DOM so its text never leaks into page-content extraction tools.
 
+## Privacy
+
+Louder stores your preferences locally and never transmits any data. See [PRIVACY.md](PRIVACY.md) for details.
+
 ## License
 
 ISC
