@@ -159,36 +159,72 @@
   }
   .demo-panel-list {
     display: flex; flex-direction: column; gap: 2px;
-    max-height: 220px; overflow-y: auto; margin: 0 -6px; padding: 0 6px;
+    max-height: 260px; overflow-y: auto; margin: 0 -6px; padding: 0 6px;
   }
+  /* Same custom scrollbar treatment as the extension's own .voice-list */
+  .demo-panel-list { scrollbar-width: thin; scrollbar-color: var(--subtext) transparent; }
+  .demo-panel-list::-webkit-scrollbar { width: 4px; }
+  .demo-panel-list::-webkit-scrollbar-track { background: transparent; }
+  .demo-panel-list::-webkit-scrollbar-thumb { background: var(--subtext); border-radius: 2px; }
+  .demo-panel-list::-webkit-scrollbar-thumb:hover { background: var(--text); }
+
   .demo-voice-row {
-    display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
-    width: 100%; text-align: left; padding: 7px 10px; border-radius: 8px;
+    display: flex; align-items: center; gap: 10px;
+    width: 100%; text-align: left; padding: 7px 10px; border-radius: 10px;
     border: none; background: transparent; color: var(--text);
     cursor: pointer; font-family: inherit; font-size: 13px;
   }
   .demo-voice-row:hover { background: rgba(255,255,255,0.06); }
   .demo-voice-row.selected { background: rgba(70,237,213,0.14); color: var(--accent); }
+  .demo-voice-avatar {
+    width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+    background: rgba(255,255,255,0.06); color: var(--subtext);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .demo-voice-row.selected .demo-voice-avatar { background: rgba(70,237,213,0.18); color: var(--accent); }
+  .demo-voice-row-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .demo-voice-row-text span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .demo-voice-row small { color: var(--subtext); font-size: 11px; }
   .demo-voice-row.selected small { color: inherit; opacity: 0.75; }
   .demo-voice-empty { padding: 6px 10px; font-size: 12.5px; color: var(--subtext); line-height: 1.5; }
 
-  .demo-panel-speed { min-width: 0; width: 90px; display: flex; flex-direction: column; align-items: center; }
-  .demo-speed-value {
-    text-align: center; font-size: 20px; font-weight: 700; color: var(--accent);
-    margin-bottom: 12px;
+  /* Speed panel — mirrors the extension's own: value+wpm header, a vertical
+     stepped track with +/- buttons, and a column of the discrete speed stops. */
+  .demo-panel-speed { min-width: 0; padding: 14px 16px; }
+  .demo-speed-hdr { text-align: center; margin-bottom: 14px; }
+  .demo-speed-hdr-val { font-size: 20px; font-weight: 700; color: var(--accent); line-height: 1.2; }
+  .demo-speed-hdr-wpm { font-size: 11px; color: var(--subtext); margin-top: 2px; }
+  .demo-speed-body { display: flex; align-items: stretch; gap: 14px; }
+  .demo-speed-track-col {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
   }
-  .demo-speed-slider-row {
-    display: flex; flex-direction: column; align-items: center; gap: 6px;
+  .demo-step-btn {
+    width: 22px; height: 22px; border-radius: 50%; border: none;
+    background: rgba(255,255,255,0.07); color: var(--text);
+    font-size: 14px; line-height: 1; cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .12s;
   }
-  .demo-speed-endpoint { font-size: 10.5px; color: var(--subtext); }
+  .demo-step-btn:hover { background: rgba(255,255,255,0.14); }
   /* Vertical range input — standard writing-mode approach (Chrome/Edge/Firefox).
-     direction:rtl puts min (0.25x) at the bottom, max (5x) at the top, matching
-     the extension's own speed panel (faster = higher on the slider). */
+     Indexes into SPEED_STOPS_ASC (slowest→fastest) so a higher input value —
+     which writing-mode + direction:rtl renders higher up — means faster,
+     matching the extension's own speed panel (faster = higher on the slider). */
   #demoSpeedPanel input[type="range"] {
     writing-mode: vertical-lr; direction: rtl;
     width: 6px; height: 150px; accent-color: var(--accent);
   }
+  .demo-speed-labels {
+    display: flex; flex-direction: column; justify-content: space-between;
+    align-items: flex-start; padding: 2px 0;
+  }
+  .demo-speed-label {
+    border: none; background: none; color: var(--subtext); cursor: pointer;
+    font-family: inherit; font-size: 11.5px; padding: 1px 4px; border-radius: 4px;
+    transition: color .12s, background .12s;
+  }
+  .demo-speed-label:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+  .demo-speed-label.active { color: var(--accent); font-weight: 700; }
 
   .demo-text {
     font-size: 19px; line-height: 1.75; margin: 0;
@@ -298,7 +334,7 @@
           <div class="demo-controls">
             <div class="demo-popover-wrap">
               <button id="demoVoiceBtn" class="demo-icon-btn" aria-haspopup="true" aria-expanded="false" aria-label="Voice">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-4.4 0-8 2.7-8 6v2h16v-2c0-3.3-3.6-6-8-6z"/></svg>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35"><circle cx="8" cy="5.5" r="2.5"/><path d="M2.5 14c0-3.04 2.46-5.5 5.5-5.5s5.5 2.46 5.5 5.5" stroke-linecap="round"/></svg>
               </button>
               <div id="demoVoicePanel" class="demo-panel" hidden>
                 <div class="demo-panel-title">Voice</div>
@@ -310,12 +346,17 @@
                 <span id="demoSpeedBadge">1×</span>
               </button>
               <div id="demoSpeedPanel" class="demo-panel demo-panel-speed" hidden>
-                <div class="demo-panel-title">Speed</div>
-                <div id="demoSpeedValue" class="demo-speed-value">1×</div>
-                <div class="demo-speed-slider-row">
-                  <span class="demo-speed-endpoint">5×</span>
-                  <input id="demoSpeed" type="range" min="0.25" max="5" step="0.25" value="1" aria-label="Playback speed" aria-orientation="vertical">
-                  <span class="demo-speed-endpoint">0.25×</span>
+                <div class="demo-speed-hdr">
+                  <div id="demoSpeedValue" class="demo-speed-hdr-val">1×</div>
+                  <div id="demoSpeedWpm" class="demo-speed-hdr-wpm">180 wpm</div>
+                </div>
+                <div class="demo-speed-body">
+                  <div class="demo-speed-track-col">
+                    <button id="demoSpeedUp" type="button" class="demo-step-btn" aria-label="Faster">+</button>
+                    <input id="demoSpeed" type="range" min="0" max="8" step="1" value="3" aria-label="Playback speed" aria-orientation="vertical">
+                    <button id="demoSpeedDown" type="button" class="demo-step-btn" aria-label="Slower">−</button>
+                  </div>
+                  <div id="demoSpeedLabels" class="demo-speed-labels"></div>
                 </div>
               </div>
             </div>
@@ -480,7 +521,8 @@
       const row = document.createElement('button');
       row.type = 'button';
       row.className = 'demo-voice-row' + (voiceKey(v) === selectedVoiceKey ? ' selected' : '');
-      row.innerHTML = `${v.name}<small>${v.lang}</small>`;
+      row.innerHTML = `<span class="demo-voice-avatar"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.35"><circle cx="8" cy="5.5" r="2.5"/><path d="M2.5 14c0-3.04 2.46-5.5 5.5-5.5s5.5 2.46 5.5 5.5" stroke-linecap="round"/></svg></span>`
+        + `<span class="demo-voice-row-text"><span>${v.name}</span><small>${v.lang}</small></span>`;
       row.addEventListener('click', () => {
         selectedVoiceKey = voiceKey(v);
         renderVoiceList();
@@ -497,12 +539,52 @@
     });
   }
 
+  // Same discrete stops and base rate as the extension (content.ts:
+  // SPEED_STOPS / BASE_WPM) — fastest-to-slowest for display, reversed for
+  // the slider itself since a higher <input> value renders higher up under
+  // writing-mode:vertical-lr + direction:rtl, and "up" should mean "faster".
+  const SPEED_STOPS = [5, 4, 3, 2, 1.5, 1, 0.75, 0.5, 0.25];
+  const SPEED_STOPS_ASC = [...SPEED_STOPS].reverse();
+  const BASE_WPM = 180;
+
+  const speedWpmEl = document.getElementById('demoSpeedWpm');
+  const speedLabelsEl = document.getElementById('demoSpeedLabels');
+  const speedUpBtn = document.getElementById('demoSpeedUp');
+  const speedDownBtn = document.getElementById('demoSpeedDown');
+
+  function currentSpeed() { return SPEED_STOPS_ASC[+speedInput.value]; }
+
+  SPEED_STOPS.forEach(s => {
+    const lbl = document.createElement('button');
+    lbl.type = 'button';
+    lbl.className = 'demo-speed-label';
+    lbl.textContent = `${s}×`;
+    lbl.addEventListener('click', () => {
+      speedInput.value = SPEED_STOPS_ASC.indexOf(s);
+      updateSpeedLabel();
+    });
+    speedLabelsEl.appendChild(lbl);
+  });
+
   function updateSpeedLabel() {
-    const label = parseFloat(speedInput.value) + '×';
+    const s = currentSpeed();
+    const label = `${s}×`;
     speedBadge.textContent = label;
     speedValueEl.textContent = label;
+    speedWpmEl.textContent = `${Math.round(s * BASE_WPM)} wpm`;
+    speedLabelsEl.querySelectorAll('.demo-speed-label').forEach(lbl => {
+      lbl.classList.toggle('active', lbl.textContent === label);
+    });
   }
   speedInput.addEventListener('input', updateSpeedLabel);
+  speedUpBtn.addEventListener('click', () => {
+    speedInput.value = Math.min(8, +speedInput.value + 1);
+    updateSpeedLabel();
+  });
+  speedDownBtn.addEventListener('click', () => {
+    speedInput.value = Math.max(0, +speedInput.value - 1);
+    updateSpeedLabel();
+  });
   updateSpeedLabel();
 
   // Split into sentences, then words, wrapping each in a span with its
@@ -576,7 +658,7 @@
     demoTextEl.contentEditable = 'false'; // offsets would desync if edited mid-read
 
     const utt = new SpeechSynthesisUtterance(text);
-    utt.rate = parseFloat(speedInput.value) || 1;
+    utt.rate = currentSpeed();
 
     const chosen = demoVoices.find(v => voiceKey(v) === selectedVoiceKey);
     if (chosen) {
