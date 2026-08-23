@@ -313,6 +313,15 @@
   const playIcon = document.getElementById('demoPlayIcon');
   const pauseIcon = document.getElementById('demoPauseIcon');
 
+  // Voice list loads asynchronously in most browsers — cache it and keep it
+  // fresh so the English voice lookup in playDemo() isn't racing an empty list.
+  let demoVoices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+  if (window.speechSynthesis) {
+    window.speechSynthesis.addEventListener('voiceschanged', () => {
+      demoVoices = window.speechSynthesis.getVoices();
+    });
+  }
+
   // Split into sentences, then words, wrapping each in a span with its
   // [start,end) offset into DEMO_TEXT so onboundary's charIndex can be
   // mapped straight back to a DOM node — same approach the extension's
@@ -376,6 +385,12 @@
     window.speechSynthesis.cancel();
     const utt = new SpeechSynthesisUtterance(DEMO_TEXT);
     utt.rate = 0.95;
+    // The sample text is English — without an explicit lang/voice, browsers
+    // fall back to the OS/system language (e.g. Polish), not the text's
+    // actual language, and mispronounce everything.
+    utt.lang = 'en-US';
+    const enVoice = demoVoices.find(v => v.lang.toLowerCase().startsWith('en'));
+    if (enVoice) utt.voice = enVoice;
     utt.onboundary = e => { if (e.name === 'word') highlightDemoAt(e.charIndex); };
     utt.onend = resetDemoUI;
     utt.onerror = resetDemoUI;
