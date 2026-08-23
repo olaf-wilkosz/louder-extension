@@ -103,18 +103,19 @@
     border-radius: var(--radius); padding: 32px;
     display: flex; gap: 24px; align-items: flex-start;
   }
+  /* Matches the real extension's .play-btn exactly: solid teal circle,
+     white icon, glow shadow — same in both play and pause state, only
+     the icon glyph swaps. Sized up slightly from the extension's 36px
+     since this stands alone in a card rather than inside a compact bar. */
   .demo-play {
-    flex-shrink: 0; width: 56px; height: 56px; border-radius: 50%;
-    background: var(--accent); color: #06201c; border: none; cursor: pointer;
+    flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%;
+    background: var(--accent); color: #fff; border: none; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 4px 20px rgba(70,237,213,0.3);
-    transition: transform .15s, box-shadow .15s, background .2s, color .2s;
+    box-shadow: 0 0 18px rgba(70,237,213,0.4);
+    transition: filter .15s, transform .12s;
   }
-  .demo-play:hover { transform: scale(1.06); box-shadow: 0 6px 26px rgba(70,237,213,0.45); }
-  .demo-play.playing {
-    background: #1a2d2a; color: var(--accent);
-    border: 1.5px solid rgba(70,237,213,0.5);
-  }
+  .demo-play:hover  { filter: brightness(1.12); }
+  .demo-play:active { transform: scale(0.92); }
   .demo-body { flex: 1; min-width: 0; }
   .demo-status {
     display: block; color: var(--subtext); font-size: 12.5px; font-weight: 600;
