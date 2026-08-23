@@ -43,7 +43,13 @@
     position: sticky; top: 0; z-index: 50;
     padding: 14px 0;
   }
-  header .wrap {
+  /* The pill's background lives on this inner element, not on .wrap itself —
+     .wrap always spans the full viewport width once the screen is narrower
+     than its max-width (nothing left to auto-center), so a background/
+     border-radius applied directly to .wrap would touch both screen edges
+     with no inset, unlike every other section's card content (which sits
+     nested *inside* .wrap and inherits its padding as a real margin). */
+  .header-pill {
     display: flex; align-items: center; justify-content: space-between; height: 56px;
     border-radius: 999px; border: 1px solid transparent;
     background: transparent; backdrop-filter: none;
@@ -51,7 +57,7 @@
     transition: background .35s ease, backdrop-filter .35s ease,
                 border-color .35s ease, box-shadow .35s ease;
   }
-  header.scrolled .wrap {
+  header.scrolled .header-pill {
     background: rgba(20,35,31,0.7);
     backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
     border-color: rgba(70,237,213,0.14);
@@ -293,13 +299,15 @@
 
 <header>
   <div class="wrap">
-    <a href="#" class="brand" aria-label="Louder — back to top"><img src="../public/icons/icon128.png" alt=""> Louder</a>
-    <nav>
-      <a href="#demo">Demo</a>
-      <a href="#features">Features</a>
-      <a href="#screenshots">Screenshots</a>
-      <a href="https://github.com/olaf-wilkosz/louder-extension" class="btn btn-ghost">GitHub</a>
-    </nav>
+    <div class="header-pill">
+      <a href="#" class="brand" aria-label="Louder — back to top"><img src="../public/icons/icon128.png" alt=""> Louder</a>
+      <nav>
+        <a href="#demo">Demo</a>
+        <a href="#features">Features</a>
+        <a href="#screenshots">Screenshots</a>
+        <a href="https://github.com/olaf-wilkosz/louder-extension" class="btn btn-ghost">GitHub</a>
+      </nav>
+    </div>
   </div>
 </header>
 
@@ -503,6 +511,28 @@
   });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanels(true); });
 
+  // Many mobile browsers (Chrome for Android, Safari) never fire onboundary
+  // at all — a known Web Speech API gap, not something detectable in advance.
+  // If no boundary arrives shortly after speech starts, fall back to an
+  // estimated word-by-word timer instead of leaving the demo looking broken.
+  let boundaryReceived = false;
+  let fallbackTimer = null;
+  function stopFallbackHighlight() {
+    if (fallbackTimer) { clearInterval(fallbackTimer); fallbackTimer = null; }
+  }
+  function startFallbackHighlight(rate) {
+    const words = [...demoTextEl.querySelectorAll('.demo-word')];
+    if (!words.length) return;
+    const wordsPerSecond = Math.max(0.1, rate * BASE_WPM / 60);
+    let i = 0;
+    highlightDemoAt(+words[0].dataset.start); // show the first word immediately
+    fallbackTimer = setInterval(() => {
+      i++;
+      if (i >= words.length || !window.speechSynthesis.speaking) { stopFallbackHighlight(); return; }
+      highlightDemoAt(+words[i].dataset.start);
+    }, 1000 / wordsPerSecond);
+  }
+
   let selectedVoiceKey = '';
   function voiceKey(v) { return `${v.name}|${v.lang}`; }
 
@@ -646,6 +676,7 @@
   }
 
   function resetDemoUI() {
+    stopFallbackHighlight();
     demoPlayBtn.classList.remove('playing');
     demoPlayBtn.setAttribute('aria-label', 'Play demo');
     playIcon.style.display = ''; pauseIcon.style.display = 'none';
@@ -681,11 +712,20 @@
       if (enVoice) utt.voice = enVoice;
     }
 
-    utt.onboundary = e => { if (e.name === 'word') highlightDemoAt(e.charIndex); };
+    boundaryReceived = false;
+    utt.onboundary = e => {
+      if (e.name !== 'word') return;
+      boundaryReceived = true;
+      stopFallbackHighlight(); // real boundary data arrived after all — trust it over the estimate
+      highlightDemoAt(e.charIndex);
+    };
     utt.onend = resetDemoUI;
     utt.onerror = resetDemoUI;
     closePanels(false);
     window.speechSynthesis.speak(utt);
+    setTimeout(() => {
+      if (!boundaryReceived && window.speechSynthesis.speaking) startFallbackHighlight(utt.rate);
+    }, 600);
     demoPlayBtn.classList.add('playing');
     demoPlayBtn.setAttribute('aria-label', 'Pause demo');
     playIcon.style.display = 'none'; pauseIcon.style.display = '';
