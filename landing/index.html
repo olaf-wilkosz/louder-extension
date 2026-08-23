@@ -116,17 +116,46 @@
     border: 1.5px solid rgba(70,237,213,0.5);
   }
   .demo-body { flex: 1; min-width: 0; }
-  .demo-status {
-    display: block; color: var(--subtext); font-size: 12.5px; font-weight: 600;
-    text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px;
+  .demo-toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px 20px; flex-wrap: wrap; margin-bottom: 12px;
   }
-  .demo-text { font-size: 19px; line-height: 1.75; margin: 0; }
+  .demo-status {
+    color: var(--subtext); font-size: 12.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .06em;
+  }
+  .demo-controls { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .demo-select {
+    background: var(--bg-2); color: var(--text); font-family: inherit;
+    border: 1px solid var(--card-border); border-radius: 8px;
+    padding: 5px 8px; font-size: 12.5px; cursor: pointer; max-width: 190px;
+  }
+  .demo-select:focus { outline: none; border-color: var(--accent); }
+  .demo-speed {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 12.5px; color: var(--subtext); user-select: none;
+  }
+  .demo-speed input[type="range"] { width: 90px; accent-color: var(--accent); }
+  #demoSpeedLabel { color: var(--text); font-weight: 600; min-width: 28px; }
+
+  .demo-text {
+    font-size: 19px; line-height: 1.75; margin: 0;
+    border-radius: 8px; padding: 4px 6px; margin: -4px -6px;
+  }
+  .demo-text[contenteditable="true"] { cursor: text; }
+  .demo-text[contenteditable="true"]:focus {
+    outline: none; background: rgba(255,255,255,0.02);
+    box-shadow: 0 0 0 2px rgba(70,237,213,0.25);
+  }
+  .demo-text[contenteditable="false"] { cursor: default; }
+  .demo-hint { display: block; margin-top: 10px; font-size: 12.5px; color: var(--subtext); }
   .demo-sentence { border-radius: 5px; transition: background .2s; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
   .demo-sentence.active { background: rgba(70,237,213,0.09); }
   .demo-word { border-radius: 3px; transition: background .1s, color .1s; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
   .demo-word.active { background: var(--accent); color: #06201c; }
   @media (max-width: 640px) {
     .demo-card { flex-direction: column; align-items: center; text-align: center; }
+    .demo-toolbar { justify-content: center; text-align: left; }
   }
 
   section { padding: 64px 0; scroll-margin-top: 90px; }
@@ -212,8 +241,19 @@
         <svg id="demoPauseIcon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="display:none"><rect x="3" y="2" width="4" height="12" rx="1"/><rect x="9" y="2" width="4" height="12" rx="1"/></svg>
       </button>
       <div class="demo-body">
-        <span id="demoStatus" class="demo-status">Press play to listen</span>
-        <p id="demoText" class="demo-text"></p>
+        <div class="demo-toolbar">
+          <span id="demoStatus" class="demo-status">Press play to listen</span>
+          <div class="demo-controls">
+            <select id="demoVoiceSelect" class="demo-select" aria-label="Voice"></select>
+            <label class="demo-speed">
+              Speed
+              <input id="demoSpeed" type="range" min="0.25" max="5" step="0.25" value="1" aria-label="Playback speed">
+              <span id="demoSpeedLabel">1×</span>
+            </label>
+          </div>
+        </div>
+        <p id="demoText" class="demo-text" contenteditable="true" spellcheck="false"></p>
+        <span class="demo-hint">Click the text to edit it, or paste your own — then press play.</span>
       </div>
     </div>
   </div>
@@ -312,22 +352,54 @@
   const demoStatusEl = document.getElementById('demoStatus');
   const playIcon = document.getElementById('demoPlayIcon');
   const pauseIcon = document.getElementById('demoPauseIcon');
+  const voiceSelect = document.getElementById('demoVoiceSelect');
+  const speedInput = document.getElementById('demoSpeed');
+  const speedLabel = document.getElementById('demoSpeedLabel');
 
-  // Voice list loads asynchronously in most browsers — cache it and keep it
-  // fresh so the English voice lookup in playDemo() isn't racing an empty list.
+  function voiceKey(v) { return `${v.name}|${v.lang}`; }
+
+  // Voice list loads asynchronously in most browsers — cache it and keep the
+  // <select> in sync so the picker isn't stuck empty or racing an empty list.
   let demoVoices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+  function populateVoiceSelect() {
+    const keep = voiceSelect.value;
+    voiceSelect.innerHTML = '';
+    const sorted = [...demoVoices].sort((a, b) => a.lang.localeCompare(b.lang) || a.name.localeCompare(b.name));
+    sorted.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = voiceKey(v);
+      opt.textContent = `${v.name} (${v.lang})`;
+      voiceSelect.appendChild(opt);
+    });
+    if (keep && sorted.some(v => voiceKey(v) === keep)) {
+      voiceSelect.value = keep; // preserve the visitor's choice across a voice-list refresh
+    } else {
+      const enIdx = sorted.findIndex(v => v.lang.toLowerCase().startsWith('en'));
+      if (enIdx >= 0) voiceSelect.selectedIndex = enIdx;
+    }
+  }
+  populateVoiceSelect();
   if (window.speechSynthesis) {
     window.speechSynthesis.addEventListener('voiceschanged', () => {
       demoVoices = window.speechSynthesis.getVoices();
+      populateVoiceSelect();
     });
   }
 
+  function updateSpeedLabel() {
+    speedLabel.textContent = parseFloat(speedInput.value) + '×';
+  }
+  speedInput.addEventListener('input', updateSpeedLabel);
+  updateSpeedLabel();
+
   // Split into sentences, then words, wrapping each in a span with its
-  // [start,end) offset into DEMO_TEXT so onboundary's charIndex can be
-  // mapped straight back to a DOM node — same approach the extension's
+  // [start,end) offset into the source text so onboundary's charIndex can
+  // be mapped straight back to a DOM node — same approach the extension's
   // CSS Highlight API lookup uses, just via <span> instead of Highlight().
-  function buildDemoDom() {
-    const sentences = DEMO_TEXT.match(/[^.!?]+[.!?]+(\s+|$)/g) || [DEMO_TEXT];
+  // Takes the *current* text (default sample or whatever the visitor typed)
+  // rather than a fixed constant, since the box is editable.
+  function buildDemoDom(text) {
+    const sentences = text.match(/[^.!?]+[.!?]+(\s+|$)/g) || [text];
     let offset = 0;
     demoTextEl.innerHTML = '';
     sentences.forEach(sentence => {
@@ -350,7 +422,7 @@
       demoTextEl.appendChild(sEl);
     });
   }
-  buildDemoDom();
+  buildDemoDom(DEMO_TEXT);
 
   function clearDemoHighlight() {
     demoTextEl.querySelectorAll('.demo-word.active, .demo-sentence.active')
@@ -375,6 +447,7 @@
     playIcon.style.display = ''; pauseIcon.style.display = 'none';
     demoStatusEl.textContent = 'Press play to listen';
     clearDemoHighlight();
+    demoTextEl.contentEditable = 'true';
   }
 
   function playDemo() {
@@ -382,15 +455,28 @@
       demoStatusEl.textContent = "Your browser doesn't support speech synthesis";
       return;
     }
+    const text = (demoTextEl.textContent || '').trim();
+    if (!text) { demoStatusEl.textContent = 'Type something to read first'; return; }
+
     window.speechSynthesis.cancel();
-    const utt = new SpeechSynthesisUtterance(DEMO_TEXT);
-    utt.rate = 0.95;
-    // The sample text is English — without an explicit lang/voice, browsers
-    // fall back to the OS/system language (e.g. Polish), not the text's
-    // actual language, and mispronounce everything.
-    utt.lang = 'en-US';
-    const enVoice = demoVoices.find(v => v.lang.toLowerCase().startsWith('en'));
-    if (enVoice) utt.voice = enVoice;
+    buildDemoDom(text); // rebuild spans from whatever's in the box right now
+    demoTextEl.contentEditable = 'false'; // offsets would desync if edited mid-read
+
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.rate = parseFloat(speedInput.value) || 1;
+
+    const chosen = demoVoices.find(v => voiceKey(v) === voiceSelect.value);
+    if (chosen) {
+      utt.voice = chosen;
+      utt.lang = chosen.lang;
+    } else {
+      // No selection yet (voices still loading) — fall back to English so the
+      // default sample text doesn't get read in the browser's system language.
+      utt.lang = 'en-US';
+      const enVoice = demoVoices.find(v => v.lang.toLowerCase().startsWith('en'));
+      if (enVoice) utt.voice = enVoice;
+    }
+
     utt.onboundary = e => { if (e.name === 'word') highlightDemoAt(e.charIndex); };
     utt.onend = resetDemoUI;
     utt.onerror = resetDemoUI;
