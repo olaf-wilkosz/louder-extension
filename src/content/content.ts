@@ -33,7 +33,7 @@ const DARK: ThemeVars = {
   pillBg: "rgba(37,37,40,0.5)", pillBgHover: "rgba(37,37,40,0.8)",
   border: "rgba(255,255,255,0.08)",  divider: "rgba(255,255,255,0.08)",
   icon: "rgba(255,255,255,0.48)",    iconHover: "rgba(255,255,255,0.9)",
-  text: "rgba(255,255,255,0.85)",    subtext: "rgba(255,255,255,0.32)",
+  text: "rgba(255,255,255,0.85)",    subtext: "rgba(255,255,255,0.5)", /* was 0.32 — only 2.87:1 against the panel, below WCAG AA's 4.5:1 for text */
   timer: "rgba(255,255,255,0.72)",
   closeBg: "#3a3a3e",   closeBorder: "rgba(255,255,255,0.1)",
   trackBg: "rgba(255,255,255,0.1)",
@@ -46,7 +46,7 @@ const LIGHT: ThemeVars = {
   pillBg: "rgba(221,221,227,0.5)", pillBgHover: "rgba(221,221,227,0.8)",
   border: "rgba(0,0,0,0.08)",        divider: "rgba(0,0,0,0.07)",
   icon: "rgba(0,0,0,0.42)",          iconHover: "rgba(0,0,0,0.85)",
-  text: "rgba(0,0,0,0.85)",          subtext: "rgba(0,0,0,0.3)",
+  text: "rgba(0,0,0,0.85)",          subtext: "rgba(0,0,0,0.6)", /* was 0.3 — only ~2:1 against the panel, below WCAG AA's 4.5:1 for text */
   timer: "rgba(0,0,0,0.62)",
   closeBg: "#c4c4cc",   closeBorder: "rgba(0,0,0,0.08)",
   trackBg: "rgba(0,0,0,0.11)",
@@ -141,11 +141,15 @@ const SHADOW_CSS = `
 /* Active: X icon flips to blue */
 .close-btn:active,
 .root:hover .close-btn:active { color: var(--accent); }
-/* close button: reveal on hover in all states, or always when panel is open */
+/* close button: reveal on hover in all states, when panel is open, or on
+   keyboard focus — without :focus-visible here, a keyboard user tabbing to
+   this control would land on something invisible with no visual feedback. */
 [data-state="collapsed"] .pill:hover .close-btn,
 [data-state="expanded"]  .pill:hover .close-btn,
 [data-state="playing"]   .pill:hover .close-btn,
-[data-panel-open] .close-btn { opacity: 1; pointer-events: auto; }
+[data-panel-open] .close-btn,
+.close-btn:focus-visible { opacity: 1; pointer-events: auto; }
+.close-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* ── chevron button ── */
 .chev-btn {
@@ -159,13 +163,18 @@ const SHADOW_CSS = `
 }
 .chev-btn:hover { background: var(--chip-bg-hover); color: var(--icon-hover); }
 
-/* chevron: reveal on hover in all states, or always when panel is open */
+/* chevron: reveal on hover in all states, when panel is open, or on keyboard
+   focus (same reasoning as .close-btn above — max-width:0 alone would make
+   a focused-but-unrevealed chevron effectively invisible to a sighted
+   keyboard user). */
 [data-state="collapsed"] .pill:hover .chev-btn,
 [data-state="expanded"]  .pill:hover .chev-btn,
 [data-state="playing"]   .pill:hover .chev-btn,
-[data-panel-open] .chev-btn {
+[data-panel-open] .chev-btn,
+.chev-btn:focus-visible {
   max-width: 28px; opacity: 1; pointer-events: auto;
 }
+.chev-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* chevron direction: rotate the inner icon */
 .chev-icon {
@@ -198,6 +207,15 @@ const SHADOW_CSS = `
 }
 .icon-btn:hover  { background: var(--chip-bg-hover); color: var(--icon-hover); }
 .icon-btn.active { background: var(--accent-tint); color: var(--accent); }
+/* Visible focus ring — shared by every icon/control button in the widget,
+   since none of them had any :focus-visible treatment before. */
+.icon-btn:focus-visible,
+.play-btn:focus-visible,
+.skip-btn:focus-visible,
+.pin-btn:focus-visible,
+.panel-close:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
 
 /* speed badge inside icon-btn */
 .speed-badge {
@@ -1132,6 +1150,7 @@ class LouderWidget {
   private settingsBtnEl!: HTMLButtonElement;
   private speedBtnEl!: HTMLButtonElement;
   private voiceBtnEl!: HTMLButtonElement;
+  private chevBtnEl!: HTMLButtonElement;
 
   // Drag
   private dragStartX = 0; private dragStartY = 0;
@@ -1292,21 +1311,28 @@ class LouderWidget {
     pill.className = "pill";
     this.root.appendChild(pill);
 
-    // Close button
+    // Close button — was a plain <div>, not keyboard-operable at all
     const closeBtn = document.createElement("div");
     closeBtn.className = "close-btn";
     closeBtn.innerHTML = I.close;
+    closeBtn.setAttribute("role", "button");
+    closeBtn.setAttribute("tabindex", "0");
+    closeBtn.setAttribute("aria-label", "Close");
     closeBtn.addEventListener("click", e => { e.stopPropagation(); this.handleClose(); });
+    closeBtn.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); this.handleClose(); }
+    });
     pill.appendChild(closeBtn);
 
     // Chevron — single icon rotated by CSS
-    const chevBtn = document.createElement("button");
-    chevBtn.className = "chev-btn";
+    this.chevBtnEl = document.createElement("button");
+    this.chevBtnEl.className = "chev-btn";
+    this.chevBtnEl.setAttribute("aria-label", "Expand");
     const chevIcon = document.createElement("span");
     chevIcon.className = "chev-icon";
     chevIcon.innerHTML = I.chev;
-    chevBtn.appendChild(chevIcon);
-    chevBtn.addEventListener("click", () => {
+    this.chevBtnEl.appendChild(chevIcon);
+    this.chevBtnEl.addEventListener("click", () => {
       if (this.wState === "collapsed") {
         // Expand: if TTS is running show playing state, otherwise expanded-idle
         if (this.ttsActive) this.goPlaying();
@@ -1316,7 +1342,7 @@ class LouderWidget {
         this.goCollapsed();
       }
     });
-    pill.appendChild(chevBtn);
+    pill.appendChild(this.chevBtnEl);
 
     // ── Expandable section ─────────────────────────────────────────
     const expandable = document.createElement("div");
@@ -1326,6 +1352,8 @@ class LouderWidget {
     this.settingsBtnEl = document.createElement("button");
     this.settingsBtnEl.className = "icon-btn";
     this.settingsBtnEl.title = "Settings";
+    this.settingsBtnEl.setAttribute("aria-label", "Settings");
+    this.settingsBtnEl.setAttribute("aria-haspopup", "dialog");
     this.settingsBtnEl.innerHTML = I.sliders;
     this.settingsBtnEl.addEventListener("click", () => this.togglePopup("settings", this.settingsBtnEl));
     expandable.appendChild(this.settingsBtnEl);
@@ -1334,6 +1362,7 @@ class LouderWidget {
     const readSelBtn = document.createElement("button");
     readSelBtn.className = "icon-btn";
     readSelBtn.title = "Read it louder!";
+    readSelBtn.setAttribute("aria-label", "Read selection aloud");
     readSelBtn.innerHTML = I.readSel;
     readSelBtn.addEventListener("click", () => {
       const sel = window.getSelection()?.toString().trim();
@@ -1345,9 +1374,11 @@ class LouderWidget {
     this.speedBtnEl = document.createElement("button");
     this.speedBtnEl.className = "icon-btn";
     this.speedBtnEl.title = "Speed";
+    this.speedBtnEl.setAttribute("aria-haspopup", "dialog");
     this.speedBadgeEl = document.createElement("span");
     this.speedBadgeEl.className = "speed-badge";
     this.speedBadgeEl.textContent = `${this.speed}×`;
+    this.speedBtnEl.setAttribute("aria-label", `Speed: ${this.speed}×`);
     this.speedBtnEl.appendChild(this.speedBadgeEl);
     this.speedBtnEl.addEventListener("click", () => this.togglePopup("speed", this.speedBtnEl));
     expandable.appendChild(this.speedBtnEl);
@@ -1356,6 +1387,8 @@ class LouderWidget {
     this.voiceBtnEl = document.createElement("button");
     this.voiceBtnEl.className = "icon-btn";
     this.voiceBtnEl.title = "Voice";
+    this.voiceBtnEl.setAttribute("aria-label", "Voice");
+    this.voiceBtnEl.setAttribute("aria-haspopup", "dialog");
     this.voiceBtnEl.innerHTML = I.person;
     this.voiceBtnEl.addEventListener("click", () => this.togglePopup("voice", this.voiceBtnEl));
     expandable.appendChild(this.voiceBtnEl);
@@ -1381,6 +1414,8 @@ class LouderWidget {
 
     const skipBack = document.createElement("button");
     skipBack.className = "skip-btn";
+    skipBack.title = "Previous sentence";
+    skipBack.setAttribute("aria-label", "Previous sentence");
     skipBack.innerHTML = I.stepBack;
     skipBack.addEventListener("click", () => {
       if (!sentences.length) return;
@@ -1395,6 +1430,8 @@ class LouderWidget {
 
     const skipFwd = document.createElement("button");
     skipFwd.className = "skip-btn";
+    skipFwd.title = "Next sentence";
+    skipFwd.setAttribute("aria-label", "Next sentence");
     skipFwd.innerHTML = I.stepFwd;
     skipFwd.addEventListener("click", () => {
       if (!sentences.length) return;
@@ -1443,8 +1480,7 @@ class LouderWidget {
 
     this.playBtnEl = document.createElement("button");
     this.playBtnEl.className = "play-btn";
-    this.playBtnEl.title = "Play";
-    this.playBtnEl.innerHTML = I.play;
+    this.setPlayIcon(false);
     this.playBtnEl.addEventListener("click", () => this.handlePlayClick());
     playWrap.appendChild(this.playBtnEl);
 
@@ -1460,24 +1496,37 @@ class LouderWidget {
     document.addEventListener("mousedown", (e: MouseEvent) => {
       if (this.popup && !this.host.contains(e.target as Node)) this.setPopup(null);
     });
+    // Close panel on Escape and return focus to whichever button opened it —
+    // without this, a keyboard user had no way to close a popup at all.
+    document.addEventListener("keydown", (e: KeyboardEvent) => {
+      if (e.key === "Escape" && this.popup) {
+        e.stopPropagation();
+        const trigger = this.lastTrigger;
+        this.setPopup(null);
+        trigger?.focus();
+      }
+    });
   }
 
   // ── State transitions — purely visual, never touch TTS ───────────
   private goCollapsed(): void {
     this.wState = "collapsed";
     this.root.dataset.state = "collapsed";
+    this.chevBtnEl.setAttribute("aria-label", "Expand");
     this.setPopup(null);
   }
 
   private goExpanded(): void {
     this.wState = "expanded";
     this.root.dataset.state = "expanded";
+    this.chevBtnEl.setAttribute("aria-label", "Collapse");
     this.setPopup(null);
   }
 
   private goPlaying(): void {
     this.wState = "playing";
     this.root.dataset.state = "playing";
+    this.chevBtnEl.setAttribute("aria-label", "Collapse");
   }
 
   // ── Popup ─────────────────────────────────────────────────────────
@@ -1494,8 +1543,14 @@ class LouderWidget {
 
     const wrap = document.createElement("div");
     wrap.className = "panels-wrap";
-    wrap.appendChild(this.buildPanel(id));
+    const panelEl = this.buildPanel(id);
+    wrap.appendChild(panelEl);
     this.panelsCont.appendChild(wrap);
+    // Move focus into the panel so keyboard/screen-reader users land somewhere
+    // meaningful instead of staying on the trigger button with no indication
+    // anything opened. tabIndex=-1 on the panel (set in each builder) makes it
+    // programmatically focusable without adding it to normal tab order.
+    panelEl.focus();
 
     // Position panel horizontally centered below the trigger button
     const triggerEl = trigger ?? this.lastTrigger;
@@ -1526,6 +1581,9 @@ class LouderWidget {
   private buildSpeedPanel(): HTMLElement {
     const wrap = document.createElement("div");
     wrap.className = "panel speed-panel";
+    wrap.setAttribute("role", "dialog");
+    wrap.setAttribute("aria-label", "Speed");
+    wrap.tabIndex = -1;
 
     const idx  = SPEED_STOPS.indexOf(this.speed);
     const pct  = idx / (SPEED_STOPS.length - 1);
@@ -1539,6 +1597,7 @@ class LouderWidget {
     hdrInfo.appendChild(hdrVal); hdrInfo.appendChild(hdrWpm); hdr.appendChild(hdrInfo);
     const hdrClose = document.createElement("div");
     hdrClose.className = "panel-close"; hdrClose.innerHTML = I.close;
+    hdrClose.setAttribute("aria-label", "Close");
     hdrClose.addEventListener("click", () => this.setPopup(null));
     hdr.appendChild(hdrClose);
     wrap.appendChild(hdr);
@@ -1624,12 +1683,16 @@ class LouderWidget {
   private buildVoicePanel(): HTMLElement {
     const wrap = document.createElement("div");
     wrap.className = "panel voice-panel";
+    wrap.setAttribute("role", "dialog");
+    wrap.setAttribute("aria-label", "Voice");
+    wrap.tabIndex = -1;
 
     const hdr = document.createElement("div");
     hdr.className = "panel-hdr";
     hdr.innerHTML = `<span class="panel-lbl">Voices</span>`;
     const hdrClose = document.createElement("div");
     hdrClose.className = "panel-close"; hdrClose.innerHTML = I.close;
+    hdrClose.setAttribute("aria-label", "Close");
     hdrClose.addEventListener("click", () => this.setPopup(null));
     hdr.appendChild(hdrClose);
     wrap.appendChild(hdr);
@@ -1762,12 +1825,16 @@ class LouderWidget {
   private buildSettingsPanel(): HTMLElement {
     const wrap = document.createElement("div");
     wrap.className = "panel settings-panel";
+    wrap.setAttribute("role", "dialog");
+    wrap.setAttribute("aria-label", "Settings");
+    wrap.tabIndex = -1;
 
     const hdr = document.createElement("div");
     hdr.className = "panel-hdr";
     hdr.innerHTML = `<span class="panel-lbl">Settings</span>`;
     const hdrClose = document.createElement("div");
     hdrClose.className = "panel-close"; hdrClose.innerHTML = I.close;
+    hdrClose.setAttribute("aria-label", "Close");
     hdrClose.addEventListener("click", () => this.setPopup(null));
     hdr.appendChild(hdrClose);
     wrap.appendChild(hdr);
@@ -1858,7 +1925,7 @@ class LouderWidget {
       // Pause
       pauseTTS();
       this.setTTSActive(false);
-      this.playBtnEl.innerHTML = I.play;
+      this.setPlayIcon(false);
       // If the pill was showing the playing (expanded) view, drop back to expanded-idle
       if (this.wState === "playing") {
         this.stopTimer();
@@ -1867,7 +1934,7 @@ class LouderWidget {
     } else if (isPaused && sentences.length > 0) {
       // Resume paused session from wherever the widget sits visually
       this.setTTSActive(true);
-      this.playBtnEl.innerHTML = I.pause;
+      this.setPlayIcon(true);
       if (this.wState !== "collapsed") {
         this.goPlaying();
         this.startTimer();
@@ -1886,7 +1953,7 @@ class LouderWidget {
   private onTTSDone(): void {
     this.setTTSActive(false);
     this.stopTimer();
-    this.playBtnEl.innerHTML = I.play;
+    this.setPlayIcon(false);
     if (this.wState === "playing") this.goExpanded();
   }
 
@@ -1895,7 +1962,7 @@ class LouderWidget {
     const wordCount = raw.split(/\s+/).length;
     this.totalSecs = Math.max(10, Math.round(wordCount / (this.speed * BASE_WPM) * 60));
     this.setTTSActive(true);
-    this.playBtnEl.innerHTML = I.pause;
+    this.setPlayIcon(true);
     this.startTimer();
 
     // Only expand to playing view if already expanded; stay collapsed if collapsed
@@ -1911,6 +1978,7 @@ class LouderWidget {
     const oldSpeed = this.speed;
     this.speed = s; ttsSpeed = s;
     this.speedBadgeEl.textContent = `${s}×`;
+    this.speedBtnEl.setAttribute("aria-label", `Speed: ${s}×`);
     if (sentences.length > 0) {
       const wps = Math.max(0.1, s * BASE_WPM / 60);
       calculatedTotalSecs = sentences.reduce((sum, sent) => sum + sent.split(/\s+/).length / wps, 0);
@@ -1938,7 +2006,7 @@ class LouderWidget {
     stopTTS();
     this.setTTSActive(false);
     this.stopTimer();
-    this.playBtnEl.innerHTML = I.play;
+    this.setPlayIcon(false);
     this.wState = "collapsed";
     if (this.root) this.root.dataset.state = "collapsed";
     this.setPopup(null);
@@ -1962,6 +2030,15 @@ class LouderWidget {
 
   private stopTimer(): void {
     if (this.timerInterval !== null) { clearInterval(this.timerInterval); this.timerInterval = null; }
+  }
+
+  /** Swaps the play/pause icon AND its accessible name together — title
+   *  was previously set once at creation and never updated, so screen
+   *  readers always announced "Play" even while actively playing. */
+  private setPlayIcon(playing: boolean): void {
+    this.playBtnEl.innerHTML = playing ? I.pause : I.play;
+    this.playBtnEl.title = playing ? "Pause" : "Play";
+    this.playBtnEl.setAttribute("aria-label", playing ? "Pause" : "Play");
   }
 
   private hideWidget(): void {
@@ -2028,7 +2105,7 @@ class LouderWidget {
     removeHighlight();
     this.setTTSActive(false);
     this.stopTimer();
-    this.playBtnEl.innerHTML = I.play;
+    this.setPlayIcon(false);
     if (this.wState === "playing") this.goExpanded();
   }
 
