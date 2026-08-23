@@ -17,13 +17,12 @@ Distraction-free text-to-speech reader for the browser. Select any text, hit pla
 
 ## Screenshots
 
-| Idle | Playing | Selection trigger |
-|---|---|---|
-| ![Idle collapsed widget](docs/screenshots/01-idle-collapsed.png) | ![Playing with highlight](docs/screenshots/03-playing-highlight-hovered.png) | ![Selection trigger expanded](docs/screenshots/08-trigger-hover-hovered.png) |
+![Louder's widget reading a Wikipedia article aloud, with the word 'artificial' highlighted live](landing/hero.png)
 
-| Settings | Voices | Speed |
+| Selection trigger | Settings | Voices |
 |---|---|---|
-| ![Settings panel](docs/screenshots/04-settings-panel-hovered.png) | ![Voice picker](docs/screenshots/05-voice-picker-hovered.png) | ![Speed picker](docs/screenshots/06-speed-picker-hovered.png) |
+| ![Selection trigger expanded, showing the Read it louder pill](landing/gallery-trigger.png) | ![Settings panel with theme and highlight color presets](landing/gallery-settings.png) | ![Voice picker listing available system voices](landing/gallery-voices.png) |
+| Select text anywhere — the trigger follows your cursor | Theme and highlight color, your choice | Every voice your browser offers |
 
 ## Installation
 
