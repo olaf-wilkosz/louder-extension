@@ -51,6 +51,7 @@
      nested *inside* .wrap and inherits its padding as a real margin). */
   .header-pill {
     display: flex; align-items: center; justify-content: space-between; height: 56px;
+    padding: 0 22px;
     border-radius: 999px; border: 1px solid transparent;
     background: transparent; backdrop-filter: none;
     box-shadow: none;
@@ -523,14 +524,23 @@
   function startFallbackHighlight(rate) {
     const words = [...demoTextEl.querySelectorAll('.demo-word')];
     if (!words.length) return;
+    // Advancing one word per fixed-length tick drifts out of sync on any word
+    // that isn't exactly average length — "recognize" takes longer to speak
+    // than "a". Instead, pace by character position against elapsed wall-clock
+    // time, so long and short words each get roughly the reading time they need.
     const wordsPerSecond = Math.max(0.1, rate * BASE_WPM / 60);
+    const totalChars = +words[words.length - 1].dataset.end;
+    const charsPerSecond = wordsPerSecond * (totalChars / words.length);
+    const startTime = performance.now();
     let i = 0;
     highlightDemoAt(+words[0].dataset.start); // show the first word immediately
     fallbackTimer = setInterval(() => {
-      i++;
-      if (i >= words.length || !window.speechSynthesis.speaking) { stopFallbackHighlight(); return; }
+      if (!window.speechSynthesis.speaking) { stopFallbackHighlight(); return; }
+      const elapsedChars = (performance.now() - startTime) / 1000 * charsPerSecond;
+      while (i < words.length - 1 && elapsedChars >= +words[i + 1].dataset.start) i++;
       highlightDemoAt(+words[i].dataset.start);
-    }, 1000 / wordsPerSecond);
+      if (i >= words.length - 1) stopFallbackHighlight();
+    }, 90);
   }
 
   let selectedVoiceKey = '';
