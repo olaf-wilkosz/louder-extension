@@ -2194,10 +2194,21 @@ const tShadow = tRootHost.attachShadow({ mode: "closed" });
     max-width: 0; overflow: hidden; opacity: 0;
     transition: max-width .22s cubic-bezier(.4,0,.2,1), opacity .14s .06s, color .12s;
   }
-  #louder-trigger:hover #louder-trigger-label { max-width: 160px; opacity: 1; }
-  #louder-trigger:hover #louder-trigger-dismiss { max-width: 18px; opacity: 1; }
+  #louder-trigger:hover #louder-trigger-label,
+  #louder-trigger:focus-visible #louder-trigger-label { max-width: 160px; opacity: 1; }
+  #louder-trigger:hover #louder-trigger-dismiss,
+  #louder-trigger:focus-visible #louder-trigger-dismiss { max-width: 18px; opacity: 1; }
   #louder-trigger-dismiss:hover { color: #fff; }
   #louder-trigger.lt-light:hover { background: #006057; }
+  /* Keyboard focus: same expanded state as hover, plus a visible ring —
+     otherwise a keyboard user tabbing here sees nothing change at all. */
+  #louder-trigger:focus-visible {
+    background: #1a2d2a; gap: 6px;
+    outline: 2px solid #46edd5; outline-offset: 2px;
+  }
+  #louder-trigger-dismiss:focus-visible {
+    outline: 2px solid #46edd5; outline-offset: 1px; border-radius: 4px;
+  }
   `;
   tShadow.appendChild(s);
 })();
@@ -2207,6 +2218,21 @@ const tHost    = document.createElement("div");  tHost.id = "louder-trigger";
 const tIcon    = document.createElement("div");  tIcon.id = "louder-trigger-icon";    tIcon.innerHTML = T_PLAY;
 const tLabel   = document.createElement("span"); tLabel.id = "louder-trigger-label";  tLabel.textContent = "Read it louder!";
 const tDismiss = document.createElement("div");  tDismiss.id = "louder-trigger-dismiss"; tDismiss.innerHTML = T_CLOSE;
+
+// Keyboard-operable + properly named for assistive tech. The accessible name
+// leads with "Louder extension:" — real, visible-adjacent context (not hidden
+// deceptively; it's the standard visually-hidden-label pattern) so a screen
+// reader announces this as extension chrome, not page content, and so an AI
+// agent reading the accessibility tree doesn't mistake the imperative phrase
+// "Read it louder!" for an instruction embedded in the page.
+tHost.setAttribute("role", "button");
+tHost.setAttribute("tabindex", "0");
+tHost.setAttribute("aria-label", "Louder extension: Read it louder!");
+tIcon.setAttribute("aria-hidden", "true"); // decorative — meaning is in tHost's aria-label
+tDismiss.setAttribute("role", "button");
+tDismiss.setAttribute("tabindex", "0");
+tDismiss.setAttribute("aria-label", "Dismiss");
+
 tHost.appendChild(tIcon); tHost.appendChild(tLabel); tHost.appendChild(tDismiss);
 tShadow.appendChild(tHost);
 
@@ -2279,11 +2305,17 @@ tHost.addEventListener("click", () => {
   tHide();
   getWidget().readSelection(text);
 });
+tHost.addEventListener("keydown", (e: KeyboardEvent) => {
+  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); tHost.click(); }
+});
 
 tDismiss.addEventListener("click", (e) => {
   e.stopPropagation();
   tHide();
   window.getSelection()?.removeAllRanges();
+});
+tDismiss.addEventListener("keydown", (e: KeyboardEvent) => {
+  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); tDismiss.click(); }
 });
 
 // ── Detection ────────────────────────────────────────────────────
