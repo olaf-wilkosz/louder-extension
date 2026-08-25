@@ -766,6 +766,14 @@ let searchText = ""; // fullText with U+00A0 → U+0020 (same length, positions 
 let collapsedText   = ""; // searchText with all \s+ → single space (for <br>/<p> mismatch)
 let collapsedPosMap: number[] = []; // collapsedText[i] → fullText position
 let sentencePos = -1; // start of current sentence in fullText (for word offsets)
+// Forward anchor for word-level matches WITHIN the current sentence. Without
+// this, every word search starts over from sentencePos (the sentence's own
+// start) — so a short, recurring word like "do" always matches its FIRST
+// occurrence in the sentence, even when that's just the prefix of an
+// unrelated earlier word like "dobry", instead of the real standalone word
+// later on. Set to sentencePos when a sentence is (re)located, advanced past
+// each successfully matched word — same idea as searchAnchor, one level down.
+let wordSearchPos = -1;
 // Lower bound for findSentenceRange() lookups. Repeated text (e.g. a "Buy now"
 // button on every item in an email list) has multiple matches in fullText —
 // searching from position 0 (or from sentencePos, which removeHighlight()
@@ -833,20 +841,42 @@ function buildNodeCache(): void {
   nodeCache = [];
   searchAnchor = 0; lastMatchStart = -1; // new content — previous anchor position is meaningless
   let pos = 0;
-  // SHOW_ELEMENT is required so visibleFilter can FILTER_REJECT hidden subtrees;
-  // element nodes themselves are skipped in the body below.
+  const fullTextParts: string[] = [];
+  // On Gmail, gmailBodyText() (which builds the spoken `sentences`) inlines
+  // meaningful img alt text into the extracted text — marketing emails often
+  // convey real content that way (banners, buttons). If that alt text isn't
+  // also reflected here, a "sentence" containing it can't be found in
+  // fullText at all — or worse, coincidentally matches unrelated real text
+  // elsewhere (e.g. a brand name that's both a logo's alt text and mentioned
+  // in the body copy), which throws off the forward search anchor for every
+  // sentence after it. No nodeCache entry is added for the alt text itself
+  // since there's no text node backing it to actually highlight.
+  const isGmail = location.hostname.includes("mail.google.com");
+  // SHOW_ELEMENT is required so visibleFilter can FILTER_REJECT hidden subtrees
+  // (and, on Gmail, so IMG elements are visited for their alt text below).
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, visibleFilter);
   let n: Node | null;
   while ((n = walker.nextNode())) {
-    if (n.nodeType !== Node.TEXT_NODE) continue; // element nodes visited only for filtering
+    if (n.nodeType === Node.ELEMENT_NODE) {
+      if (isGmail && (n as Element).tagName === "IMG") {
+        const alt = ((n as HTMLImageElement).alt ?? "").trim();
+        if (alt) {
+          const withSpace = `${alt} `;
+          fullTextParts.push(withSpace);
+          pos += withSpace.length;
+        }
+      }
+      continue;
+    }
     const textNode = n as Text;
     const parent = textNode.parentElement;
     if (parent && (parent.tagName === "SCRIPT" || parent.tagName === "STYLE")) continue;
-    const len = textNode.textContent?.length ?? 0;
-    if (len) nodeCache.push({ node: textNode, start: pos });
+    const text = textNode.textContent ?? "";
+    const len = text.length;
+    if (len) { nodeCache.push({ node: textNode, start: pos }); fullTextParts.push(text); }
     pos += len;
   }
-  fullText   = nodeCache.map(e => e.node.textContent ?? "").join("");
+  fullText   = fullTextParts.join("");
   // NBSP-normalised — same positions as fullText (U+00A0 → U+0020, 1-to-1 swap)
   searchText = fullText.replace(/ /g, " ");
   // Whitespace-collapsed — for matching sentences where <br>/<p> gaps are missing
@@ -1017,11 +1047,18 @@ function highlightSentence(sentence: string): void {
     // earlier occurrence; sentencePos stays -1 so onboundary() skips word
     // highlighting for this sentence too, until a later one resyncs.
     if (!result) { sentencePos = -1; return; }
-    removeHighlight();
-    sentencePos = result.start;
     lastMatchStart = result.start;
+    // A match with no backing text node (e.g. a "sentence" that's really an
+    // image's alt text, inlined into the spoken content but not into the DOM)
+    // can't be highlighted — leave whatever was already showing rather than
+    // clearing it for nothing. sentencePos is set to -1 (not left stale) so
+    // onboundary() doesn't try word-highlighting this sentence against the
+    // wrong, previous sentence's anchor.
     const range = rangeAt(result.start, result.end);
-    if (!range) return;
+    if (!range) { sentencePos = -1; return; }
+    removeHighlight(); // clears the old highlight; also resets sentencePos, set again right after
+    sentencePos = result.start;
+    wordSearchPos = result.start;
     CSS.highlights.set(HL_SENTENCE, new Highlight(range));
     scrollRangeIntoView(range);
   }
@@ -1079,6 +1116,7 @@ function speakFrom(index: number, onDone?: () => void): void {
   }
   // Word highlighting — fires at each word boundary if the voice supports it
   if (useHighlightAPI) {
+    let lastBoundaryKey = ""; // dedupe: some engines fire the same word-boundary event more than once
     utt.onboundary = (e: SpeechSynthesisEvent) => {
       if (e.name !== "word" || sentencePos < 0 || ttsGeneration !== gen) return;
       const charLen = (e as SpeechSynthesisEvent & { charLength?: number }).charLength
@@ -1086,10 +1124,17 @@ function speakFrom(index: number, onDone?: () => void): void {
       const word = sentence.slice(e.charIndex, e.charIndex + charLen)
                            .replace(/ /g, " ").trim();
       if (!word) return;
-      // Search from sentencePos in searchText — avoids charIndex drift when
-      // sentence whitespace and fullText whitespace differ (e.g. <br> boundaries)
-      const wi = searchText.indexOf(word, sentencePos);
+      const key = `${e.charIndex}:${word}`;
+      if (key === lastBoundaryKey) return; // duplicate re-fire of the same word — ignore, don't re-search/flicker
+      lastBoundaryKey = key;
+      // Search from wordSearchPos (advances past each matched word) rather
+      // than sentencePos (the sentence's fixed start) — otherwise a short,
+      // recurring word like "do" always matches its first occurrence in the
+      // sentence, even when that's just the prefix of an earlier, unrelated
+      // word like "dobry", instead of the real standalone word later on.
+      const wi = searchText.indexOf(word, wordSearchPos);
       if (wi < 0) { CSS.highlights.delete(HL_WORD); return; } // emoji expansion or img-alt word — clear stale highlight
+      wordSearchPos = wi + word.length;
       const range = rangeAt(wi, wi + word.length);
       if (range) CSS.highlights.set(HL_WORD, new Highlight(range));
     };
