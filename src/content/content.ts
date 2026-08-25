@@ -766,6 +766,15 @@ let searchText = ""; // fullText with U+00A0 → U+0020 (same length, positions 
 let collapsedText   = ""; // searchText with all \s+ → single space (for <br>/<p> mismatch)
 let collapsedPosMap: number[] = []; // collapsedText[i] → fullText position
 let sentencePos = -1; // start of current sentence in fullText (for word offsets)
+// Temporary diagnostic logging for word/sentence highlight matching — flip on
+// in DevTools with `window.__louderDebug = true` (or edit the default below),
+// no rebuild needed. Remove once the punctuation/word-boundary drift is diagnosed.
+const DEBUG_HIGHLIGHT = false;
+function dbg(...args: unknown[]): void {
+  if (DEBUG_HIGHLIGHT || (window as unknown as { __louderDebug?: boolean }).__louderDebug) {
+    console.debug("[Louder]", ...args);
+  }
+}
 // Lower bound for findSentenceRange() lookups. Repeated text (e.g. a "Buy now"
 // button on every item in an email list) has multiple matches in fullText —
 // searching from position 0 (or from sentencePos, which removeHighlight()
@@ -1033,6 +1042,7 @@ function highlightSentence(sentence: string): void {
 
   if (useHighlightAPI) {
     const result = findSentenceRange(sentence);
+    dbg("sentence", { sentence, searchAnchorBefore: searchAnchor, result });
     // No forward match — e.g. a repeated "Buy now" sentence with no more
     // occurrences ahead of where we already are. Leave the existing
     // highlight in place instead of clearing it or snapping back to an
@@ -1047,7 +1057,7 @@ function highlightSentence(sentence: string): void {
     // onboundary() doesn't try word-highlighting this sentence against the
     // wrong, previous sentence's anchor.
     const range = rangeAt(result.start, result.end);
-    if (!range) { sentencePos = -1; return; }
+    if (!range) { dbg("sentence: matched text but rangeAt() found no DOM range", result); sentencePos = -1; return; }
     removeHighlight(); // clears the old highlight; also resets sentencePos, set again right after
     sentencePos = result.start;
     CSS.highlights.set(HL_SENTENCE, new Highlight(range));
@@ -1108,18 +1118,27 @@ function speakFrom(index: number, onDone?: () => void): void {
   // Word highlighting — fires at each word boundary if the voice supports it
   if (useHighlightAPI) {
     utt.onboundary = (e: SpeechSynthesisEvent) => {
-      if (e.name !== "word" || sentencePos < 0 || ttsGeneration !== gen) return;
-      const charLen = (e as SpeechSynthesisEvent & { charLength?: number }).charLength
+      if (e.name !== "word") { dbg("boundary: ignored (non-word)", e.name); return; }
+      if (sentencePos < 0) { dbg("boundary: ignored (sentencePos<0 — sentence has no located range)"); return; }
+      if (ttsGeneration !== gen) return; // stale callback from a superseded chain — no need to log
+      const rawCharLength = (e as SpeechSynthesisEvent & { charLength?: number }).charLength;
+      const charLen = rawCharLength
                    ?? sentence.slice(e.charIndex).match(/^\S+/)?.[0]?.length ?? 1;
       const word = sentence.slice(e.charIndex, e.charIndex + charLen)
                            .replace(/ /g, " ").trim();
-      if (!word) return;
+      if (!word) { dbg("boundary: empty word after trim", { charIndex: e.charIndex, rawCharLength, charLen }); return; }
       // Search from sentencePos in searchText — avoids charIndex drift when
       // sentence whitespace and fullText whitespace differ (e.g. <br> boundaries)
       const wi = searchText.indexOf(word, sentencePos);
+      dbg("boundary", {
+        charIndex: e.charIndex, rawCharLength, charLen, word,
+        sentenceAroundHere: sentence.slice(Math.max(0, e.charIndex - 6), e.charIndex + charLen + 6),
+        sentencePos, wi, found: wi >= 0,
+      });
       if (wi < 0) { CSS.highlights.delete(HL_WORD); return; } // emoji expansion or img-alt word — clear stale highlight
       const range = rangeAt(wi, wi + word.length);
       if (range) CSS.highlights.set(HL_WORD, new Highlight(range));
+      else dbg("boundary: matched text but rangeAt() found no DOM range", { wi, word });
     };
   }
   utt.onend = () => {
