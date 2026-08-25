@@ -771,6 +771,14 @@ let searchText = ""; // fullText with U+00A0 → U+0020 (same length, positions 
 let collapsedText   = ""; // searchText with all \s+ → single space (for <br>/<p> mismatch)
 let collapsedPosMap: number[] = []; // collapsedText[i] → fullText position
 let sentencePos = -1; // start of current sentence in fullText (for word offsets)
+// Forward anchor for word-level matches WITHIN the current sentence. Without
+// this, every word search starts over from sentencePos (the sentence's own
+// start) — so a short, recurring word like "do" always matches its FIRST
+// occurrence in the sentence, even when that's just the prefix of an
+// unrelated earlier word like "dobry", instead of the real standalone word
+// later on. Set to sentencePos when a sentence is (re)located, advanced past
+// each successfully matched word — same idea as searchAnchor, one level down.
+let wordSearchPos = -1;
 // Temporary diagnostic logging for word/sentence highlight matching.
 // On by default while diagnosing the punctuation/word-boundary drift report —
 // content scripts run in an isolated JS world, so a page-console toggle
@@ -1065,6 +1073,7 @@ function highlightSentence(sentence: string): void {
     if (!range) { dbg("sentence: matched text but rangeAt() found no DOM range", result); sentencePos = -1; return; }
     removeHighlight(); // clears the old highlight; also resets sentencePos, set again right after
     sentencePos = result.start;
+    wordSearchPos = result.start;
     CSS.highlights.set(HL_SENTENCE, new Highlight(range));
     scrollRangeIntoView(range);
   }
@@ -1122,6 +1131,7 @@ function speakFrom(index: number, onDone?: () => void): void {
   }
   // Word highlighting — fires at each word boundary if the voice supports it
   if (useHighlightAPI) {
+    let lastBoundaryKey = ""; // dedupe: some engines fire the same word-boundary event more than once
     utt.onboundary = (e: SpeechSynthesisEvent) => {
       if (e.name !== "word") { dbg("boundary: ignored (non-word)", e.name); return; }
       if (sentencePos < 0) { dbg("boundary: ignored (sentencePos<0 — sentence has no located range)"); return; }
@@ -1132,15 +1142,22 @@ function speakFrom(index: number, onDone?: () => void): void {
       const word = sentence.slice(e.charIndex, e.charIndex + charLen)
                            .replace(/ /g, " ").trim();
       if (!word) { dbg("boundary: empty word after trim", { charIndex: e.charIndex, rawCharLength, charLen }); return; }
-      // Search from sentencePos in searchText — avoids charIndex drift when
-      // sentence whitespace and fullText whitespace differ (e.g. <br> boundaries)
-      const wi = searchText.indexOf(word, sentencePos);
+      const key = `${e.charIndex}:${word}`;
+      if (key === lastBoundaryKey) return; // duplicate re-fire of the same word — ignore, don't re-search/flicker
+      lastBoundaryKey = key;
+      // Search from wordSearchPos (advances past each matched word) rather
+      // than sentencePos (the sentence's fixed start) — otherwise a short,
+      // recurring word like "do" always matches its first occurrence in the
+      // sentence, even when that's just the prefix of an earlier, unrelated
+      // word like "dobry", instead of the real standalone word later on.
+      const wi = searchText.indexOf(word, wordSearchPos);
       dbg("boundary", {
         charIndex: e.charIndex, rawCharLength, charLen, word,
         sentenceAroundHere: sentence.slice(Math.max(0, e.charIndex - 6), e.charIndex + charLen + 6),
-        sentencePos, wi, found: wi >= 0,
+        wordSearchPos, wi, found: wi >= 0,
       });
       if (wi < 0) { CSS.highlights.delete(HL_WORD); return; } // emoji expansion or img-alt word — clear stale highlight
+      wordSearchPos = wi + word.length;
       const range = rangeAt(wi, wi + word.length);
       if (range) CSS.highlights.set(HL_WORD, new Highlight(range));
       else dbg("boundary: matched text but rangeAt() found no DOM range", { wi, word });
