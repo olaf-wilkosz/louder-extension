@@ -783,13 +783,18 @@ let searchAnchor = 0;
 // past it to the next repeat of identical text.
 let lastMatchStart = -1;
 
-// Auto-scroll suppression: track last user-initiated scroll so we don't fight
-// manual scrolling. autoScrolling is true while our own scrollTo animation runs
-// (scroll events during that window are programmatic, not user-initiated).
-let lastUserScrollTime = 0;
+// Auto-scroll suppression: once the user manually scrolls (e.g. to look at
+// an image while listening), stop fighting them by re-centering on every
+// sentence — followSuspended stays true with NO timeout, so they can browse
+// freely for as long as they like. It only clears once the current highlight
+// naturally reappears in their viewport (reading has "caught up" to wherever
+// they scrolled), at which point centering resumes from there. autoScrolling
+// is true while our own scrollTo animation runs (scroll events during that
+// window are programmatic, not user-initiated, and must not re-trigger this).
+let followSuspended = false;
 let autoScrolling = false;
 document.addEventListener("scroll", () => {
-  if (!autoScrolling) lastUserScrollTime = Date.now();
+  if (!autoScrolling) followSuspended = true;
 }, { passive: true, capture: true });
 
 /** NodeFilter shared by buildNodeCache() and bodyTextFromNodes().
@@ -935,10 +940,6 @@ function rangeAt(start: number, end: number): Range | null {
 }
 
 function scrollRangeIntoView(range: Range): void {
-  // Back off for 2.5 s after any user-initiated scroll so manual navigation
-  // isn't constantly overridden by the auto-follow.
-  if (Date.now() - lastUserScrollTime < 2500) return;
-
   try {
     const rect = range.getBoundingClientRect();
     if (!rect.width && !rect.height) return; // invisible / not rendered
@@ -960,23 +961,36 @@ function scrollRangeIntoView(range: Range): void {
       setTimeout(reset, 1500);
     };
 
-    // Always target true vertical center rather than a margin band — a margin
-    // band lets the highlight drift, then jumps a full screen to re-center,
-    // which reads as "page-downing". Centering every sentence instead keeps
-    // a smooth, continuous follow. Skip only when the delta is trivial
-    // (adjacent short sentences landing at nearly the same spot) to avoid jitter.
+    const paneTop = scroller && scroller !== document.documentElement
+      ? scroller.getBoundingClientRect().top
+      : 0;
+    const paneHeight = scroller && scroller !== document.documentElement
+      ? scroller.getBoundingClientRect().height
+      : window.innerHeight;
+    const margin = 100;
+    const relTop = rect.top - paneTop;
+    const inView = relTop >= margin && rect.bottom - paneTop <= paneHeight - margin;
+
+    if (followSuspended) {
+      // The user took manual control (e.g. scrolled up to look at an image).
+      // Leave their scroll position alone — no jumping back — until the
+      // highlight naturally reappears in view on its own; only then resume
+      // pinning the center, picking back up from wherever they've scrolled to.
+      if (!inView) return;
+      followSuspended = false;
+    }
+
+    // Default behavior: keep the active sentence centered so reading flow is
+    // continuous rather than page-banding. Skip only when the delta is
+    // trivial (adjacent short sentences landing at nearly the same spot).
     const jitterFloor = 24;
     if (scroller && scroller !== document.documentElement) {
-      // Scroll the container pane (e.g. Gmail reading pane)
-      const cr = scroller.getBoundingClientRect();
-      const relTop = rect.top - cr.top;
-      const delta = relTop - cr.height / 2 + rect.height / 2;
+      const delta = relTop - paneHeight / 2 + rect.height / 2;
       if (Math.abs(delta) < jitterFloor) return;
       beginAutoScroll(scroller);
       scroller.scrollTo({ top: scroller.scrollTop + delta, behavior: "smooth" });
     } else {
-      // Scroll the window
-      const delta = rect.top - window.innerHeight / 2 + rect.height / 2;
+      const delta = rect.top - paneHeight / 2 + rect.height / 2;
       if (Math.abs(delta) < jitterFloor) return;
       beginAutoScroll(window);
       window.scrollTo({ top: window.scrollY + delta, behavior: "smooth" });
@@ -1105,6 +1119,7 @@ function startTTS(text?: string, onDone?: () => void): void {
   ttsGeneration++;
   ttsOnDone = onDone; // persist so skip-restarted chains can still call it
   speechSynthesis.cancel(); removeHighlight(); isPaused = false;
+  followSuspended = false; // fresh session — resume auto-centering from the start
   if (chrome.runtime?.id) chrome.storage.local.set({ [PLAYING_OWNER_KEY]: INSTANCE_ID });
   const raw = text ?? extractText();
   pageFingerprint = text ? "" : raw.slice(0, 120);
