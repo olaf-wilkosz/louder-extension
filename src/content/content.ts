@@ -833,20 +833,42 @@ function buildNodeCache(): void {
   nodeCache = [];
   searchAnchor = 0; lastMatchStart = -1; // new content — previous anchor position is meaningless
   let pos = 0;
-  // SHOW_ELEMENT is required so visibleFilter can FILTER_REJECT hidden subtrees;
-  // element nodes themselves are skipped in the body below.
+  const fullTextParts: string[] = [];
+  // On Gmail, gmailBodyText() (which builds the spoken `sentences`) inlines
+  // meaningful img alt text into the extracted text — marketing emails often
+  // convey real content that way (banners, buttons). If that alt text isn't
+  // also reflected here, a "sentence" containing it can't be found in
+  // fullText at all — or worse, coincidentally matches unrelated real text
+  // elsewhere (e.g. a brand name that's both a logo's alt text and mentioned
+  // in the body copy), which throws off the forward search anchor for every
+  // sentence after it. No nodeCache entry is added for the alt text itself
+  // since there's no text node backing it to actually highlight.
+  const isGmail = location.hostname.includes("mail.google.com");
+  // SHOW_ELEMENT is required so visibleFilter can FILTER_REJECT hidden subtrees
+  // (and, on Gmail, so IMG elements are visited for their alt text below).
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, visibleFilter);
   let n: Node | null;
   while ((n = walker.nextNode())) {
-    if (n.nodeType !== Node.TEXT_NODE) continue; // element nodes visited only for filtering
+    if (n.nodeType === Node.ELEMENT_NODE) {
+      if (isGmail && (n as Element).tagName === "IMG") {
+        const alt = ((n as HTMLImageElement).alt ?? "").trim();
+        if (alt) {
+          const withSpace = `${alt} `;
+          fullTextParts.push(withSpace);
+          pos += withSpace.length;
+        }
+      }
+      continue;
+    }
     const textNode = n as Text;
     const parent = textNode.parentElement;
     if (parent && (parent.tagName === "SCRIPT" || parent.tagName === "STYLE")) continue;
-    const len = textNode.textContent?.length ?? 0;
-    if (len) nodeCache.push({ node: textNode, start: pos });
+    const text = textNode.textContent ?? "";
+    const len = text.length;
+    if (len) { nodeCache.push({ node: textNode, start: pos }); fullTextParts.push(text); }
     pos += len;
   }
-  fullText   = nodeCache.map(e => e.node.textContent ?? "").join("");
+  fullText   = fullTextParts.join("");
   // NBSP-normalised — same positions as fullText (U+00A0 → U+0020, 1-to-1 swap)
   searchText = fullText.replace(/ /g, " ");
   // Whitespace-collapsed — for matching sentences where <br>/<p> gaps are missing
@@ -1017,11 +1039,17 @@ function highlightSentence(sentence: string): void {
     // earlier occurrence; sentencePos stays -1 so onboundary() skips word
     // highlighting for this sentence too, until a later one resyncs.
     if (!result) { sentencePos = -1; return; }
-    removeHighlight();
-    sentencePos = result.start;
     lastMatchStart = result.start;
+    // A match with no backing text node (e.g. a "sentence" that's really an
+    // image's alt text, inlined into the spoken content but not into the DOM)
+    // can't be highlighted — leave whatever was already showing rather than
+    // clearing it for nothing. sentencePos is set to -1 (not left stale) so
+    // onboundary() doesn't try word-highlighting this sentence against the
+    // wrong, previous sentence's anchor.
     const range = rangeAt(result.start, result.end);
-    if (!range) return;
+    if (!range) { sentencePos = -1; return; }
+    removeHighlight(); // clears the old highlight; also resets sentencePos, set again right after
+    sentencePos = result.start;
     CSS.highlights.set(HL_SENTENCE, new Highlight(range));
     scrollRangeIntoView(range);
   }
