@@ -1,10 +1,5 @@
 import { Readability } from "@mozilla/readability";
 
-// Unconditional, always-on: confirms the content script actually injected
-// and ran on this page, independent of any DEBUG_HIGHLIGHT/console-filter
-// question. Safe to remove any time — it's not gated by the debug flag.
-console.log("[Louder] content script loaded on", location.href);
-
 /* ═══════════════════════════════════════════════════════════════════
    DESIGN TOKENS
 ═══════════════════════════════════════════════════════════════════ */
@@ -779,15 +774,6 @@ let sentencePos = -1; // start of current sentence in fullText (for word offsets
 // later on. Set to sentencePos when a sentence is (re)located, advanced past
 // each successfully matched word — same idea as searchAnchor, one level down.
 let wordSearchPos = -1;
-// Temporary diagnostic logging for word/sentence highlight matching.
-// On by default while diagnosing the punctuation/word-boundary drift report —
-// content scripts run in an isolated JS world, so a page-console toggle
-// (window.__louderDebug = true) would silently never be seen here. Flip this
-// back to false (or delete this block and its call sites) once resolved.
-const DEBUG_HIGHLIGHT = true;
-function dbg(...args: unknown[]): void {
-  if (DEBUG_HIGHLIGHT) console.log("[Louder]", ...args); // console.log, not .debug — .debug is the "Verbose" level, hidden by DevTools' default filter
-}
 // Lower bound for findSentenceRange() lookups. Repeated text (e.g. a "Buy now"
 // button on every item in an email list) has multiple matches in fullText —
 // searching from position 0 (or from sentencePos, which removeHighlight()
@@ -1055,7 +1041,6 @@ function highlightSentence(sentence: string): void {
 
   if (useHighlightAPI) {
     const result = findSentenceRange(sentence);
-    dbg("sentence", { sentence, searchAnchorBefore: searchAnchor, result });
     // No forward match — e.g. a repeated "Buy now" sentence with no more
     // occurrences ahead of where we already are. Leave the existing
     // highlight in place instead of clearing it or snapping back to an
@@ -1070,7 +1055,7 @@ function highlightSentence(sentence: string): void {
     // onboundary() doesn't try word-highlighting this sentence against the
     // wrong, previous sentence's anchor.
     const range = rangeAt(result.start, result.end);
-    if (!range) { dbg("sentence: matched text but rangeAt() found no DOM range", result); sentencePos = -1; return; }
+    if (!range) { sentencePos = -1; return; }
     removeHighlight(); // clears the old highlight; also resets sentencePos, set again right after
     sentencePos = result.start;
     wordSearchPos = result.start;
@@ -1133,15 +1118,12 @@ function speakFrom(index: number, onDone?: () => void): void {
   if (useHighlightAPI) {
     let lastBoundaryKey = ""; // dedupe: some engines fire the same word-boundary event more than once
     utt.onboundary = (e: SpeechSynthesisEvent) => {
-      if (e.name !== "word") { dbg("boundary: ignored (non-word)", e.name); return; }
-      if (sentencePos < 0) { dbg("boundary: ignored (sentencePos<0 — sentence has no located range)"); return; }
-      if (ttsGeneration !== gen) return; // stale callback from a superseded chain — no need to log
-      const rawCharLength = (e as SpeechSynthesisEvent & { charLength?: number }).charLength;
-      const charLen = rawCharLength
+      if (e.name !== "word" || sentencePos < 0 || ttsGeneration !== gen) return;
+      const charLen = (e as SpeechSynthesisEvent & { charLength?: number }).charLength
                    ?? sentence.slice(e.charIndex).match(/^\S+/)?.[0]?.length ?? 1;
       const word = sentence.slice(e.charIndex, e.charIndex + charLen)
                            .replace(/ /g, " ").trim();
-      if (!word) { dbg("boundary: empty word after trim", { charIndex: e.charIndex, rawCharLength, charLen }); return; }
+      if (!word) return;
       const key = `${e.charIndex}:${word}`;
       if (key === lastBoundaryKey) return; // duplicate re-fire of the same word — ignore, don't re-search/flicker
       lastBoundaryKey = key;
@@ -1151,16 +1133,10 @@ function speakFrom(index: number, onDone?: () => void): void {
       // sentence, even when that's just the prefix of an earlier, unrelated
       // word like "dobry", instead of the real standalone word later on.
       const wi = searchText.indexOf(word, wordSearchPos);
-      dbg("boundary", {
-        charIndex: e.charIndex, rawCharLength, charLen, word,
-        sentenceAroundHere: sentence.slice(Math.max(0, e.charIndex - 6), e.charIndex + charLen + 6),
-        wordSearchPos, wi, found: wi >= 0,
-      });
       if (wi < 0) { CSS.highlights.delete(HL_WORD); return; } // emoji expansion or img-alt word — clear stale highlight
       wordSearchPos = wi + word.length;
       const range = rangeAt(wi, wi + word.length);
       if (range) CSS.highlights.set(HL_WORD, new Highlight(range));
-      else dbg("boundary: matched text but rangeAt() found no DOM range", { wi, word });
     };
   }
   utt.onend = () => {
