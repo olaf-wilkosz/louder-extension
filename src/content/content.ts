@@ -1,5 +1,10 @@
 import { Readability } from "@mozilla/readability";
 
+// Unconditional, always-on: confirms the content script actually injected
+// and ran on this page, independent of any DEBUG_HIGHLIGHT/console-filter
+// question. Safe to remove any time — it's not gated by the debug flag.
+console.log("[Louder] content script loaded on", location.href);
+
 /* ═══════════════════════════════════════════════════════════════════
    DESIGN TOKENS
 ═══════════════════════════════════════════════════════════════════ */
@@ -773,7 +778,7 @@ let sentencePos = -1; // start of current sentence in fullText (for word offsets
 // back to false (or delete this block and its call sites) once resolved.
 const DEBUG_HIGHLIGHT = true;
 function dbg(...args: unknown[]): void {
-  if (DEBUG_HIGHLIGHT) console.debug("[Louder]", ...args);
+  if (DEBUG_HIGHLIGHT) console.log("[Louder]", ...args); // console.log, not .debug — .debug is the "Verbose" level, hidden by DevTools' default filter
 }
 // Lower bound for findSentenceRange() lookups. Repeated text (e.g. a "Buy now"
 // button on every item in an email list) has multiple matches in fullText —
