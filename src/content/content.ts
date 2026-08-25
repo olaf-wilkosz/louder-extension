@@ -766,6 +766,22 @@ let searchText = ""; // fullText with U+00A0 → U+0020 (same length, positions 
 let collapsedText   = ""; // searchText with all \s+ → single space (for <br>/<p> mismatch)
 let collapsedPosMap: number[] = []; // collapsedText[i] → fullText position
 let sentencePos = -1; // start of current sentence in fullText (for word offsets)
+// Lower bound for findSentenceRange() lookups. Repeated text (e.g. a "Buy now"
+// button on every item in an email list) has multiple matches in fullText —
+// searching from position 0 (or from sentencePos, which removeHighlight()
+// resets to -1 right before every search) always re-finds the *first* one
+// regardless of which item is actually being read. This tracks the end of
+// the last successful match instead, independent of sentencePos/removeHighlight,
+// so lookups stay pinned to "at or after where we already are" and repeated
+// text resolves to the next occurrence in reading order. Reset to 0 on new
+// content or a real discontinuity (skip) — see buildNodeCache()/speakFrom().
+let searchAnchor = 0;
+// Start position of the last successfully matched sentence. Unlike
+// sentencePos (cleared to -1 by removeHighlight(), including on pause),
+// this survives a pause so resume can rewind searchAnchor to it — see
+// speakFrom() — landing back on the same occurrence instead of skipping
+// past it to the next repeat of identical text.
+let lastMatchStart = -1;
 
 // Auto-scroll suppression: track last user-initiated scroll so we don't fight
 // manual scrolling. autoScrolling is true while our own scrollTo animation runs
@@ -810,6 +826,7 @@ function getHighlightRoot(): Element {
 function buildNodeCache(): void {
   const root = getHighlightRoot();
   nodeCache = [];
+  searchAnchor = 0; lastMatchStart = -1; // new content — previous anchor position is meaningless
   let pos = 0;
   // SHOW_ELEMENT is required so visibleFilter can FILTER_REJECT hidden subtrees;
   // element nodes themselves are skipped in the body below.
@@ -847,34 +864,39 @@ function buildNodeCache(): void {
  *  Tier 2: whitespace-collapsed match — handles <br>/<p> boundaries that
  *          innerText renders as 
  but raw text nodes have no character for. */
+/** First index in collapsedPosMap whose fullText position is >= pos.
+ *  collapsedPosMap is built in increasing order, so this lets tier 2/3
+ *  lookups apply the same forward bias as tier 1's searchText.indexOf(s, pos).
+ *  Returns collapsedPosMap.length ("past the end") when pos is beyond every
+ *  entry, so a too-far-forward anchor correctly fails instead of silently
+ *  wrapping a tier 2/3 search back to the start. */
+function collapsedIndexFrom(pos: number): number {
+  if (pos === 0) return 0;
+  const i = collapsedPosMap.findIndex(p => p >= pos);
+  return i >= 0 ? i : collapsedPosMap.length;
+}
+
 function findSentenceRange(sentence: string): { start: number; end: number } | null {
-  const s = sentence.replace(/ /g, ' ');
-
-  // Search forward from current read position so repeated text (headings,
-  // repeated phrases) highlights the correct occurrence rather than always
-  // jumping back to the first one in the document.
-  const fromPos = Math.max(0, sentencePos);
-
-  // Approximate start offset in collapsedText that corresponds to fromPos.
-  // collapsedPosMap[i] is the fullText position for collapsedText index i.
-  const ci0 = fromPos === 0 ? 0 : collapsedPosMap.findIndex(p => p >= fromPos);
-  const fromCollapsed = ci0 >= 0 ? ci0 : 0;
+  const s = sentence.replace(/ /g, " ");
 
   // Tier 1 — NBSP-normalised exact match
-  let start = searchText.indexOf(s, fromPos);
-  if (start < 0) start = searchText.indexOf(s);           // fallback: wrap to start
-  if (start >= 0) return { start, end: start + s.length };
+  let start = searchText.indexOf(s, searchAnchor);
+  if (start >= 0) {
+    const end = start + s.length;
+    searchAnchor = end;
+    return { start, end };
+  }
 
   // Tier 2 — collapse all whitespace and search collapsed text
-  const sc = s.replace(/\s+/g, ' ').trim();
-  let ci = collapsedText.indexOf(sc, fromCollapsed);
-  if (ci < 0) ci = collapsedText.indexOf(sc);             // fallback: wrap to start
+  const sc = s.replace(/\s+/g, " ").trim();
+  const ci = collapsedText.indexOf(sc, collapsedIndexFrom(searchAnchor));
   if (ci >= 0) {
     start = collapsedPosMap[ci];
     const endCollapsed = ci + sc.length - 1;
     const end = endCollapsed < collapsedPosMap.length
       ? collapsedPosMap[endCollapsed] + 1
       : fullText.length;
+    searchAnchor = end;
     return { start, end };
   }
 
@@ -882,18 +904,18 @@ function findSentenceRange(sentence: string): { start: number; end: number } | n
   // rendered as <img> (captured in extraction from alt text) but have no
   // corresponding text node in the DOM for the highlight to land on.
   const se = sc
-    .replace(/\p{Extended_Pictographic}/gu, '') // strip base emoji codepoints
-    .replace(/[︀-️‍]/g, '')    // strip variation selectors + ZWJ
-    .replace(/s+/g, ' ').trim();
+    .replace(/\p{Extended_Pictographic}/gu, "") // strip base emoji codepoints
+    .replace(/[︀-️‍]/g, "")      // strip variation selectors (FE0F etc.) + ZWJ
+    .replace(/\s+/g, " ").trim();
   if (!se || se === sc) return null; // no emoji present — already failed above
-  let ci3 = collapsedText.indexOf(se, fromCollapsed);
-  if (ci3 < 0) ci3 = collapsedText.indexOf(se);           // fallback: wrap to start
+  const ci3 = collapsedText.indexOf(se, collapsedIndexFrom(searchAnchor));
   if (ci3 < 0) return null;
   start = collapsedPosMap[ci3];
   const endC3 = ci3 + se.length - 1;
   const end3 = endC3 < collapsedPosMap.length
     ? collapsedPosMap[endC3] + 1
     : fullText.length;
+  searchAnchor = end3;
   return { start, end: end3 };
 }
 function rangeAt(start: number, end: number): Range | null {
@@ -971,13 +993,19 @@ function removeHighlight(): void {
 }
 
 function highlightSentence(sentence: string): void {
-  removeHighlight();
-  if (!sentence.trim()) return;
+  if (!sentence.trim()) { removeHighlight(); return; }
 
   if (useHighlightAPI) {
     const result = findSentenceRange(sentence);
-    if (!result) return;
+    // No forward match — e.g. a repeated "Buy now" sentence with no more
+    // occurrences ahead of where we already are. Leave the existing
+    // highlight in place instead of clearing it or snapping back to an
+    // earlier occurrence; sentencePos stays -1 so onboundary() skips word
+    // highlighting for this sentence too, until a later one resyncs.
+    if (!result) { sentencePos = -1; return; }
+    removeHighlight();
     sentencePos = result.start;
+    lastMatchStart = result.start;
     const range = rangeAt(result.start, result.end);
     if (!range) return;
     CSS.highlights.set(HL_SENTENCE, new Highlight(range));
@@ -1008,6 +1036,16 @@ function getVoice(): SpeechSynthesisVoice | null {
 
 function speakFrom(index: number, onDone?: () => void): void {
   if (index >= sentences.length) { removeHighlight(); onDone?.(); return; }
+  // A backward or discontinuous jump (skip-back, or a skip-forward that
+  // leapfrogs a sentence) invalidates the forward search anchor.
+  if (index === currentIndex) {
+    // Re-playing the same sentence (pause/resume) — rewind the anchor to
+    // where that sentence was last found, so it lands on the same
+    // occurrence again instead of advancing past it to the next repeat.
+    if (lastMatchStart >= 0) searchAnchor = lastMatchStart;
+  } else if (index !== currentIndex + 1) {
+    searchAnchor = 0;
+  }
   currentIndex = index;
   sentenceStartTime = Date.now();
   const sentence = sentences[index];
@@ -1085,6 +1123,7 @@ function stopTTS(): void {
   sentences = []; currentIndex = 0; sentenceStartTime = 0;
   realElapsedBase = 0; calculatedTotalSecs = 0; realSentenceDurations = [];
   nodeCache = []; fullText = ""; searchText = ""; collapsedText = ""; collapsedPosMap = [];
+  searchAnchor = 0; lastMatchStart = -1;
 }
 
 function pauseTTS(): void {
