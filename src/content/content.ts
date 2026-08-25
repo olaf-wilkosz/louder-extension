@@ -766,14 +766,14 @@ let searchText = ""; // fullText with U+00A0 → U+0020 (same length, positions 
 let collapsedText   = ""; // searchText with all \s+ → single space (for <br>/<p> mismatch)
 let collapsedPosMap: number[] = []; // collapsedText[i] → fullText position
 let sentencePos = -1; // start of current sentence in fullText (for word offsets)
-// Temporary diagnostic logging for word/sentence highlight matching — flip on
-// in DevTools with `window.__louderDebug = true` (or edit the default below),
-// no rebuild needed. Remove once the punctuation/word-boundary drift is diagnosed.
-const DEBUG_HIGHLIGHT = false;
+// Temporary diagnostic logging for word/sentence highlight matching.
+// On by default while diagnosing the punctuation/word-boundary drift report —
+// content scripts run in an isolated JS world, so a page-console toggle
+// (window.__louderDebug = true) would silently never be seen here. Flip this
+// back to false (or delete this block and its call sites) once resolved.
+const DEBUG_HIGHLIGHT = true;
 function dbg(...args: unknown[]): void {
-  if (DEBUG_HIGHLIGHT || (window as unknown as { __louderDebug?: boolean }).__louderDebug) {
-    console.debug("[Louder]", ...args);
-  }
+  if (DEBUG_HIGHLIGHT) console.debug("[Louder]", ...args);
 }
 // Lower bound for findSentenceRange() lookups. Repeated text (e.g. a "Buy now"
 // button on every item in an email list) has multiple matches in fullText —
