@@ -960,26 +960,24 @@ function scrollRangeIntoView(range: Range): void {
       setTimeout(reset, 1500);
     };
 
-    // Always target true vertical center rather than a margin band — a margin
-    // band lets the highlight drift, then jumps a full screen to re-center,
-    // which reads as "page-downing". Centering every sentence instead keeps
-    // a smooth, continuous follow. Skip only when the delta is trivial
-    // (adjacent short sentences landing at nearly the same spot) to avoid jitter.
-    const jitterFloor = 24;
+    // Only scroll once the highlight actually leaves a comfortable viewing
+    // band — not on every sentence. Recentering on every highlight change
+    // fights normal reading flow (the page constantly nudges under you even
+    // though the current sentence is still fully visible); scrolling should
+    // only kick in once it's genuinely about to go out of view.
+    const margin = 100;
     if (scroller && scroller !== document.documentElement) {
       // Scroll the container pane (e.g. Gmail reading pane)
       const cr = scroller.getBoundingClientRect();
       const relTop = rect.top - cr.top;
-      const delta = relTop - cr.height / 2 + rect.height / 2;
-      if (Math.abs(delta) < jitterFloor) return;
+      if (relTop >= margin && rect.bottom - cr.top <= cr.height - margin) return; // still comfortably in view
       beginAutoScroll(scroller);
-      scroller.scrollTo({ top: scroller.scrollTop + delta, behavior: "smooth" });
+      scroller.scrollTo({ top: scroller.scrollTop + relTop - cr.height / 2 + rect.height / 2, behavior: "smooth" });
     } else {
       // Scroll the window
-      const delta = rect.top - window.innerHeight / 2 + rect.height / 2;
-      if (Math.abs(delta) < jitterFloor) return;
+      if (rect.top >= margin && rect.bottom <= window.innerHeight - margin) return; // still comfortably in view
       beginAutoScroll(window);
-      window.scrollTo({ top: window.scrollY + delta, behavior: "smooth" });
+      window.scrollTo({ top: window.scrollY + rect.top - window.innerHeight / 2 + rect.height / 2, behavior: "smooth" });
     }
   } catch { /* stale range */ }
 }
