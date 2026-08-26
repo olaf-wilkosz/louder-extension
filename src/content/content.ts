@@ -2282,6 +2282,10 @@ function connectKeepalive(): void {
   try {
     const port = chrome.runtime.connect({ name: "louder-keepalive" });
     port.onDisconnect.addListener(() => {
+      // Reading lastError (even without using it) tells Chrome we've handled
+      // the disconnect, so it doesn't log an "Unchecked runtime.lastError"
+      // warning — expected here, e.g. when bfcache forces the port closed.
+      void chrome.runtime.lastError;
       // Wait briefly then try to reconnect; if extension is gone connect() throws.
       setTimeout(connectKeepalive, 200);
     });
