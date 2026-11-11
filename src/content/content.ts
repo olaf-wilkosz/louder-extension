@@ -1,4 +1,5 @@
 import { Readability } from "@mozilla/readability";
+import { TextIndex, WordCursor } from "./text-index.ts";
 
 /* ═══════════════════════════════════════════════════════════════════
    DESIGN TOKENS
@@ -761,35 +762,12 @@ function splitSentences(text: string): string[] {
 // ── Text-node cache for CSS Highlight API ─────────────────────────────────
 // Rebuilt once per TTS session; reused for every sentence + word highlight.
 let nodeCache: { node: Text; start: number }[] = [];
-let fullText   = ""; // raw concatenated text node content — positions match DOM offsets
-let searchText = ""; // fullText with U+00A0 → U+0020 (same length, positions preserved)
-let collapsedText   = ""; // searchText with all \s+ → single space (for <br>/<p> mismatch)
-let collapsedPosMap: number[] = []; // collapsedText[i] → fullText position
-let sentencePos = -1; // start of current sentence in fullText (for word offsets)
-// Forward anchor for word-level matches WITHIN the current sentence. Without
-// this, every word search starts over from sentencePos (the sentence's own
-// start) — so a short, recurring word like "do" always matches its FIRST
-// occurrence in the sentence, even when that's just the prefix of an
-// unrelated earlier word like "dobry", instead of the real standalone word
-// later on. Set to sentencePos when a sentence is (re)located, advanced past
-// each successfully matched word — same idea as searchAnchor, one level down.
-let wordSearchPos = -1;
-// Lower bound for findSentenceRange() lookups. Repeated text (e.g. a "Buy now"
-// button on every item in an email list) has multiple matches in fullText —
-// searching from position 0 (or from sentencePos, which removeHighlight()
-// resets to -1 right before every search) always re-finds the *first* one
-// regardless of which item is actually being read. This tracks the end of
-// the last successful match instead, independent of sentencePos/removeHighlight,
-// so lookups stay pinned to "at or after where we already are" and repeated
-// text resolves to the next occurrence in reading order. Reset to 0 on new
-// content or a real discontinuity (skip) — see buildNodeCache()/speakFrom().
-let searchAnchor = 0;
-// Start position of the last successfully matched sentence. Unlike
-// sentencePos (cleared to -1 by removeHighlight(), including on pause),
-// this survives a pause so resume can rewind searchAnchor to it — see
-// speakFrom() — landing back on the same occurrence instead of skipping
-// past it to the next repeat of identical text.
-let lastMatchStart = -1;
+// The page text and how sentences/words are located in it live in text-index.ts (pure,
+// unit-tested). `textIndex` is rebuilt by every buildNodeCache(); `wordCursor` is created each
+// time a sentence is located and tracks the position of the words spoken within it.
+let textIndex = new TextIndex("");
+let wordCursor: WordCursor | null = null;
+let sentencePos = -1; // start of current sentence in fullText (cleared by removeHighlight, incl. on pause)
 
 // Auto-scroll suppression: once the user manually scrolls (e.g. to look at
 // an image while listening), stop fighting them by re-centering on every
@@ -839,7 +817,6 @@ function getHighlightRoot(): Element {
 function buildNodeCache(): void {
   const root = getHighlightRoot();
   nodeCache = [];
-  searchAnchor = 0; lastMatchStart = -1; // new content — previous anchor position is meaningless
   let pos = 0;
   const fullTextParts: string[] = [];
   // On Gmail, gmailBodyText() (which builds the spoken `sentences`) inlines
@@ -876,83 +853,9 @@ function buildNodeCache(): void {
     if (len) { nodeCache.push({ node: textNode, start: pos }); fullTextParts.push(text); }
     pos += len;
   }
-  fullText   = fullTextParts.join("");
-  // NBSP-normalised — same positions as fullText (U+00A0 → U+0020, 1-to-1 swap)
-  searchText = fullText.replace(/ /g, " ");
-  // Whitespace-collapsed — for matching sentences where <br>/<p> gaps are missing
-  collapsedText   = "";
-  collapsedPosMap = [];
-  let inWS = false;
-  for (let i = 0; i < searchText.length; i++) {
-    if (/\s/.test(searchText[i])) {
-      if (!inWS) { collapsedPosMap.push(i); collapsedText += " "; }
-      inWS = true;
-    } else {
-      collapsedPosMap.push(i); collapsedText += searchText[i];
-      inWS = false;
-    }
-  }
+  textIndex = new TextIndex(fullTextParts.join("")); // also resets the sentence anchor
 }
 
-/** Three-tier sentence search — returns { start, end } positions in fullText, or null.
- *  Tier 1: exact NBSP-normalised match (positions identical to fullText).
- *  Tier 2: whitespace-collapsed match — handles <br>/<p> boundaries that
- *          innerText renders as 
- but raw text nodes have no character for. */
-/** First index in collapsedPosMap whose fullText position is >= pos.
- *  collapsedPosMap is built in increasing order, so this lets tier 2/3
- *  lookups apply the same forward bias as tier 1's searchText.indexOf(s, pos).
- *  Returns collapsedPosMap.length ("past the end") when pos is beyond every
- *  entry, so a too-far-forward anchor correctly fails instead of silently
- *  wrapping a tier 2/3 search back to the start. */
-function collapsedIndexFrom(pos: number): number {
-  if (pos === 0) return 0;
-  const i = collapsedPosMap.findIndex(p => p >= pos);
-  return i >= 0 ? i : collapsedPosMap.length;
-}
-
-function findSentenceRange(sentence: string): { start: number; end: number } | null {
-  const s = sentence.replace(/ /g, " ");
-
-  // Tier 1 — NBSP-normalised exact match
-  let start = searchText.indexOf(s, searchAnchor);
-  if (start >= 0) {
-    const end = start + s.length;
-    searchAnchor = end;
-    return { start, end };
-  }
-
-  // Tier 2 — collapse all whitespace and search collapsed text
-  const sc = s.replace(/\s+/g, " ").trim();
-  const ci = collapsedText.indexOf(sc, collapsedIndexFrom(searchAnchor));
-  if (ci >= 0) {
-    start = collapsedPosMap[ci];
-    const endCollapsed = ci + sc.length - 1;
-    const end = endCollapsed < collapsedPosMap.length
-      ? collapsedPosMap[endCollapsed] + 1
-      : fullText.length;
-    searchAnchor = end;
-    return { start, end };
-  }
-
-  // Tier 3 — strip emoji from search term: handles Gmail where emoji are
-  // rendered as <img> (captured in extraction from alt text) but have no
-  // corresponding text node in the DOM for the highlight to land on.
-  const se = sc
-    .replace(/\p{Extended_Pictographic}/gu, "") // strip base emoji codepoints
-    .replace(/[︀-️‍]/g, "")      // strip variation selectors (FE0F etc.) + ZWJ
-    .replace(/\s+/g, " ").trim();
-  if (!se || se === sc) return null; // no emoji present — already failed above
-  const ci3 = collapsedText.indexOf(se, collapsedIndexFrom(searchAnchor));
-  if (ci3 < 0) return null;
-  start = collapsedPosMap[ci3];
-  const endC3 = ci3 + se.length - 1;
-  const end3 = endC3 < collapsedPosMap.length
-    ? collapsedPosMap[endC3] + 1
-    : fullText.length;
-  searchAnchor = end3;
-  return { start, end: end3 };
-}
 function rangeAt(start: number, end: number): Range | null {
   let sNode: Text | null = null, sOff = 0, eNode: Text | null = null, eOff = 0;
   for (const { node, start: ns } of nodeCache) {
@@ -1040,14 +943,14 @@ function highlightSentence(sentence: string): void {
   if (!sentence.trim()) { removeHighlight(); return; }
 
   if (useHighlightAPI) {
-    const result = findSentenceRange(sentence);
+    const result = textIndex.findSentenceRange(sentence);
     // No forward match — e.g. a repeated "Buy now" sentence with no more
     // occurrences ahead of where we already are. Leave the existing
     // highlight in place instead of clearing it or snapping back to an
     // earlier occurrence; sentencePos stays -1 so onboundary() skips word
     // highlighting for this sentence too, until a later one resyncs.
     if (!result) { sentencePos = -1; return; }
-    lastMatchStart = result.start;
+    textIndex.lastMatchStart = result.start;
     // A match with no backing text node (e.g. a "sentence" that's really an
     // image's alt text, inlined into the spoken content but not into the DOM)
     // can't be highlighted — leave whatever was already showing rather than
@@ -1058,7 +961,7 @@ function highlightSentence(sentence: string): void {
     if (!range) { sentencePos = -1; return; }
     removeHighlight(); // clears the old highlight; also resets sentencePos, set again right after
     sentencePos = result.start;
-    wordSearchPos = result.start;
+    wordCursor = new WordCursor(textIndex.searchText, result.start);
     CSS.highlights.set(HL_SENTENCE, new Highlight(range));
     scrollRangeIntoView(range);
   }
@@ -1093,9 +996,9 @@ function speakFrom(index: number, onDone?: () => void): void {
     // Re-playing the same sentence (pause/resume) — rewind the anchor to
     // where that sentence was last found, so it lands on the same
     // occurrence again instead of advancing past it to the next repeat.
-    if (lastMatchStart >= 0) searchAnchor = lastMatchStart;
+    textIndex.rewindToLastMatch();
   } else if (index !== currentIndex + 1) {
-    searchAnchor = 0;
+    textIndex.resetAnchor();
   }
   currentIndex = index;
   sentenceStartTime = Date.now();
@@ -1116,25 +1019,18 @@ function speakFrom(index: number, onDone?: () => void): void {
   }
   // Word highlighting — fires at each word boundary if the voice supports it
   if (useHighlightAPI) {
-    let lastBoundaryKey = ""; // dedupe: some engines fire the same word-boundary event more than once
     utt.onboundary = (e: SpeechSynthesisEvent) => {
-      if (e.name !== "word" || sentencePos < 0 || ttsGeneration !== gen) return;
+      if (e.name !== "word" || sentencePos < 0 || !wordCursor || ttsGeneration !== gen) return;
       const charLen = (e as SpeechSynthesisEvent & { charLength?: number }).charLength
                    ?? sentence.slice(e.charIndex).match(/^\S+/)?.[0]?.length ?? 1;
       const word = sentence.slice(e.charIndex, e.charIndex + charLen)
                            .replace(/ /g, " ").trim();
       if (!word) return;
-      const key = `${e.charIndex}:${word}`;
-      if (key === lastBoundaryKey) return; // duplicate re-fire of the same word — ignore, don't re-search/flicker
-      lastBoundaryKey = key;
-      // Search from wordSearchPos (advances past each matched word) rather
-      // than sentencePos (the sentence's fixed start) — otherwise a short,
-      // recurring word like "do" always matches its first occurrence in the
-      // sentence, even when that's just the prefix of an earlier, unrelated
-      // word like "dobry", instead of the real standalone word later on.
-      const wi = searchText.indexOf(word, wordSearchPos);
+      // The cursor searches forward from the previous word (see WordCursor) and
+      // returns null for a duplicate re-fire of the same boundary event.
+      const wi = wordCursor.match(word, e.charIndex);
+      if (wi === null) return;
       if (wi < 0) { CSS.highlights.delete(HL_WORD); return; } // emoji expansion or img-alt word — clear stale highlight
-      wordSearchPos = wi + word.length;
       const range = rangeAt(wi, wi + word.length);
       if (range) CSS.highlights.set(HL_WORD, new Highlight(range));
     };
@@ -1182,8 +1078,7 @@ function stopTTS(): void {
   isPaused = false; speechSynthesis.cancel(); removeHighlight();
   sentences = []; currentIndex = 0; sentenceStartTime = 0;
   realElapsedBase = 0; calculatedTotalSecs = 0; realSentenceDurations = [];
-  nodeCache = []; fullText = ""; searchText = ""; collapsedText = ""; collapsedPosMap = [];
-  searchAnchor = 0; lastMatchStart = -1;
+  nodeCache = []; textIndex = new TextIndex(""); wordCursor = null;
 }
 
 function pauseTTS(): void {
