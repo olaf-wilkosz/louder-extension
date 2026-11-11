@@ -24,6 +24,8 @@ The first version. It reads any page, email or selection aloud with the browser'
 ### Interface
 - A draggable floating widget (collapsed pill, control bar, settings, voice and speed panels) in dark, light or system theme, built in a Shadow DOM so page CSS cannot touch it.
 - Accessibility pass: labelled controls, keyboard navigation, focus management for the popovers, WCAG AA text contrast.
+- Voices can be chosen with the keyboard (each voice is a real button; the pin button shows when focused), the popup buttons report whether their popup is open (`aria-expanded`), and the selected speed, theme, highlight colour and voice are announced (`aria-pressed`).
+- Honours the OS "reduce motion" setting: panel animations are skipped and the page follows the reading without smooth scrolling.
 
 ### Privacy and security
 - Preferences are stored locally with `chrome.storage.local` and nothing is ever transmitted. The widget no longer loads a web font from Google (it uses the system font stack).

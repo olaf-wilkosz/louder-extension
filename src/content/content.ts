@@ -394,6 +394,13 @@ const SHADOW_CSS = `
 }
 .voice-item:hover:not(.active) { background: var(--chip-bg); }
 .voice-item.active { background: var(--accent-tint); }
+.voice-select {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px;
+  padding: 0; border: none; background: none; cursor: pointer;
+  font: inherit; color: inherit; text-align: left; border-radius: 8px;
+}
+.voice-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pin-btn:focus-visible { opacity: 1; outline: 2px solid var(--accent); outline-offset: 1px; }
 .voice-avatar {
   width: 28px; height: 28px; border-radius: 50%;
   background: var(--chip-bg); flex-shrink: 0;
@@ -454,6 +461,18 @@ const SHADOW_CSS = `
 .preset-item.active .preset-name { font-weight: 600; color: var(--text); }
 .preset-mini { display: flex; border-radius: 4px; overflow: hidden; flex-shrink: 0; }
 .mini-s, .mini-w { width: 12px; height: 12px; }
+
+/* Honour "reduce motion": near-zero durations rather than none, so the animationend /
+   transitionend events the widget relies on still fire. !important also beats the inline
+   transitions set from script (progress ring, voice-list reordering). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-delay: 0s !important;
+    transition-duration: .01ms !important;
+    transition-delay: 0s !important;
+  }
+}
 `;
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -640,6 +659,11 @@ document.addEventListener("scroll", () => {
   if (!autoScrolling) followSuspended = true;
 }, { passive: true, capture: true });
 
+/** Smooth scrolling unless the user asked the OS to reduce motion. */
+function scrollBehavior(): ScrollBehavior {
+  return matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+}
+
 /** Returns the same root element used by extractText() so the node cache
  *  is scoped to content only — avoids false indexOf() hits in Gmail's email
  *  preview list, ChatGPT UI chrome, etc. */
@@ -720,12 +744,12 @@ function scrollRangeIntoView(range: Range): void {
       const delta = relTop - paneHeight / 2 + rect.height / 2;
       if (Math.abs(delta) < jitterFloor) return;
       beginAutoScroll(scroller);
-      scroller.scrollTo({ top: scroller.scrollTop + delta, behavior: "smooth" });
+      scroller.scrollTo({ top: scroller.scrollTop + delta, behavior: scrollBehavior() });
     } else {
       const delta = rect.top - paneHeight / 2 + rect.height / 2;
       if (Math.abs(delta) < jitterFloor) return;
       beginAutoScroll(window);
-      window.scrollTo({ top: window.scrollY + delta, behavior: "smooth" });
+      window.scrollTo({ top: window.scrollY + delta, behavior: scrollBehavior() });
     }
   } catch { /* stale range */ }
 }
@@ -775,7 +799,7 @@ function highlightSentence(sentence: string): void {
       r.setStart(node, idx); r.setEnd(node, idx + sentence.length);
       const mark = document.createElement("mark");
       mark.className = "louder-highlight";
-      try { r.surroundContents(mark); mark.scrollIntoView({ behavior: "smooth", block: "center" }); }
+      try { r.surroundContents(mark); mark.scrollIntoView({ behavior: scrollBehavior(), block: "center" }); }
       catch { /* boundary crossing — mark not inserted */ }
       return;
     }
@@ -1137,6 +1161,7 @@ class LouderWidget {
     this.settingsBtnEl.title = "Settings";
     this.settingsBtnEl.setAttribute("aria-label", "Settings");
     this.settingsBtnEl.setAttribute("aria-haspopup", "dialog");
+    this.settingsBtnEl.setAttribute("aria-expanded", "false");
     this.settingsBtnEl.innerHTML = I.sliders;
     this.settingsBtnEl.addEventListener("click", () => this.togglePopup("settings", this.settingsBtnEl));
     expandable.appendChild(this.settingsBtnEl);
@@ -1158,6 +1183,7 @@ class LouderWidget {
     this.speedBtnEl.className = "icon-btn";
     this.speedBtnEl.title = "Speed";
     this.speedBtnEl.setAttribute("aria-haspopup", "dialog");
+    this.speedBtnEl.setAttribute("aria-expanded", "false");
     this.speedBadgeEl = document.createElement("span");
     this.speedBadgeEl.className = "speed-badge";
     this.speedBadgeEl.textContent = `${this.speed}×`;
@@ -1172,6 +1198,7 @@ class LouderWidget {
     this.voiceBtnEl.title = "Voice";
     this.voiceBtnEl.setAttribute("aria-label", "Voice");
     this.voiceBtnEl.setAttribute("aria-haspopup", "dialog");
+    this.voiceBtnEl.setAttribute("aria-expanded", "false");
     this.voiceBtnEl.innerHTML = I.person;
     this.voiceBtnEl.addEventListener("click", () => this.togglePopup("voice", this.voiceBtnEl));
     expandable.appendChild(this.voiceBtnEl);
@@ -1319,6 +1346,9 @@ class LouderWidget {
     this.settingsBtnEl.classList.toggle("active", id === "settings");
     this.speedBtnEl.classList.toggle("active",    id === "speed");
     this.voiceBtnEl.classList.toggle("active",    id === "voice");
+    this.settingsBtnEl.setAttribute("aria-expanded", String(id === "settings"));
+    this.speedBtnEl.setAttribute("aria-expanded",    String(id === "speed"));
+    this.voiceBtnEl.setAttribute("aria-expanded",    String(id === "voice"));
 
     this.root.toggleAttribute("data-panel-open", !!id);
     this.panelsCont.innerHTML = "";
@@ -1428,8 +1458,9 @@ class LouderWidget {
     const labelEls: HTMLButtonElement[] = [];
     SPEED_STOPS.forEach(s => {
       const lbl = document.createElement("button");
-      lbl.className = `speed-label${s === this.speed ? " active" : ""}`;
+      lbl.className = "speed-label";
       lbl.textContent = `${s}×`;
+      this.setSelected(lbl, s === this.speed);
       lbl.addEventListener("click", () => this.applySpeed(s));
       labelEls.push(lbl);
       labelsCol.appendChild(lbl);
@@ -1440,6 +1471,12 @@ class LouderWidget {
     // Store refs so applySpeed can update values without rebuilding the panel
     this.spRefs = { hdrVal, hdrWpm, fill: trackFill, handle: trackHandle, labels: labelEls };
     return wrap;
+  }
+
+  /** A choice button's selected state: the visual class and the state screen readers announce. */
+  private setSelected(el: HTMLElement, on: boolean): void {
+    el.classList.toggle("active", on);
+    el.setAttribute("aria-pressed", String(on));
   }
 
   private detectPageLang(): string {
@@ -1512,20 +1549,27 @@ class LouderWidget {
 
     const makeItem = (uri: string, name: string, hint: string, isPinned: boolean): HTMLElement => {
       const item = document.createElement("div");
-      item.className = `voice-item${this.activeVoiceURI === uri ? " active" : ""}`;
+      item.className = "voice-item";
       if (uri) item.dataset.uri = uri;
 
+      // The row is a container; the voice itself is a real <button> so it can be reached with
+      // Tab and chosen with Enter/Space. (Its click bubbles to the row's handler below.)
+      const select  = document.createElement("button"); select.className = "voice-select";
       const avatar  = document.createElement("div"); avatar.className = "voice-avatar"; avatar.innerHTML = I.person;
       const textDiv = document.createElement("div"); textDiv.style.flex = "1";
       const nameEl  = document.createElement("div"); nameEl.className = "voice-name"; nameEl.textContent = name;
       const hintEl  = document.createElement("div"); hintEl.className = "voice-hint"; hintEl.textContent = hint;
       textDiv.appendChild(nameEl); textDiv.appendChild(hintEl);
-      item.appendChild(avatar); item.appendChild(textDiv);
+      select.appendChild(avatar); select.appendChild(textDiv);
+      item.appendChild(select);
+      item.classList.toggle("active", this.activeVoiceURI === uri);
+      select.setAttribute("aria-pressed", String(this.activeVoiceURI === uri));
 
       if (uri) {
         const pinBtn = document.createElement("button");
         pinBtn.className = `pin-btn${isPinned ? " pinned" : ""}`;
         pinBtn.title     = isPinned ? "Unpin" : "Pin to top";
+        pinBtn.setAttribute("aria-label", `${isPinned ? "Unpin" : "Pin"} ${name}`);
         pinBtn.innerHTML = isPinned ? I.star : I.starOut;
         pinBtn.addEventListener("click", e => {
           e.stopPropagation();
@@ -1537,8 +1581,10 @@ class LouderWidget {
       item.addEventListener("click", () => {
         this.activeVoiceURI = uri; voiceURI = uri;
         this.saveSettings();
-        list.querySelectorAll<HTMLElement>(".voice-item").forEach(el => el.classList.remove("active"));
-        item.classList.add("active");
+        list.querySelectorAll<HTMLElement>(".voice-item").forEach(el => {
+          el.classList.toggle("active", el === item);
+          el.querySelector(".voice-select")?.setAttribute("aria-pressed", String(el === item));
+        });
       });
       return item;
     };
@@ -1631,13 +1677,13 @@ class LouderWidget {
     seg.className = "theme-seg";
     (["dark", "light", "system"] as ThemeChoice[]).forEach(opt => {
       const btn = document.createElement("button");
-      btn.className = `theme-btn${this.themeChoice === opt ? " active" : ""}`;
+      btn.className = "theme-btn";
       btn.textContent = opt;
+      this.setSelected(btn, this.themeChoice === opt);
       btn.addEventListener("click", () => {
         this.themeChoice = opt; this.saveSettings();
         this.applyThemeVars();
-        seg.querySelectorAll<HTMLElement>(".theme-btn").forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
+        seg.querySelectorAll<HTMLElement>(".theme-btn").forEach(b => this.setSelected(b, b === btn));
       });
       seg.appendChild(btn);
     });
@@ -1655,7 +1701,8 @@ class LouderWidget {
     (Object.keys(PRESETS) as PresetKey[]).forEach(key => {
       const p = PRESETS[key];
       const item = document.createElement("button");
-      item.className = `preset-item${this.highlightPreset === key ? " active" : ""}`;
+      item.className = "preset-item";
+      this.setSelected(item, this.highlightPreset === key);
       const name = document.createElement("span");
       name.className = "preset-name";
       name.textContent = key.charAt(0).toUpperCase() + key.slice(1);
@@ -1675,8 +1722,7 @@ class LouderWidget {
         this.highlightPreset = key;
         this.saveSettings();
         applyHighlightColors(key);
-        grid.querySelectorAll<HTMLElement>(".preset-item").forEach(s => s.classList.remove("active"));
-        item.classList.add("active");
+        grid.querySelectorAll<HTMLElement>(".preset-item").forEach(s => this.setSelected(s, s === item));
       });
       grid.appendChild(item);
     });
@@ -1779,7 +1825,7 @@ class LouderWidget {
       this.spRefs.fill.style.top    = `${pct * 100}%`;
       this.spRefs.fill.style.height = `${(1 - pct) * 100}%`;
       this.spRefs.handle.style.top  = `${pct * 100}%`;
-      this.spRefs.labels.forEach((lbl, i) => lbl.classList.toggle("active", SPEED_STOPS[i] === s));
+      this.spRefs.labels.forEach((lbl, i) => this.setSelected(lbl, SPEED_STOPS[i] === s));
     } else {
       this.setPopup("speed");
     }
@@ -2072,6 +2118,9 @@ const tShadow = tRootHost.attachShadow({ mode: "closed" });
   }
   #louder-trigger-dismiss:focus-visible {
     outline: 2px solid #46edd5; outline-offset: 1px; border-radius: 4px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #louder-trigger, #louder-trigger * { transition-duration: .01ms !important; transition-delay: 0s !important; animation-duration: .01ms !important; }
   }
   `;
   tShadow.appendChild(s);
