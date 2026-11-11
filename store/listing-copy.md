@@ -5,7 +5,7 @@
 ```
 Distraction-free text-to-speech reader. Reads any page or selection aloud with live word & sentence highlighting.
 ```
-(115 characters)
+(113 characters)
 
 ## Detailed description
 

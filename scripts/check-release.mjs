@@ -1,0 +1,143 @@
+// Release sanity checks, run by CI on every push and before a release is built:
+//
+//   node scripts/check-release.mjs [v1.2.3]    (optional tag to compare the version with)
+//
+// Catches the things that otherwise only fail at store upload or, worse, after it: versions out
+// of sync, store text limits, files the manifest points at that don't exist, permissions that
+// crept in, bundled third-party code without its license notice, and code patterns the stores
+// reject or that would contradict the privacy policy ("no network requests of its own").
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { basename, join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
+const read = (...parts) => readFileSync(join(ROOT, ...parts), "utf8");
+const exists = (...parts) => existsSync(join(ROOT, ...parts));
+
+const manifest = JSON.parse(read("manifest.json"));
+const pkg = JSON.parse(read("package.json"));
+const tag = process.argv[2];
+
+// What the extension is allowed to ask for. Changing these lists is a deliberate decision: it
+// also changes the store listing's permission justifications and the privacy policy page.
+const EXPECTED_PERMISSIONS = ["activeTab", "contextMenus", "scripting", "storage"];
+const EXPECTED_HOSTS = ["<all_urls>"];
+const EXPECTED_CONTENT_MATCHES = ["<all_urls>"];
+
+// Third-party packages that end up inside the built content.js / background.js. Each needs its
+// license notice in THIRD_PARTY_NOTICES.md (the build ships that file with the package).
+const BUNDLED_DEPENDENCIES = ["@mozilla/readability"];
+
+// manifest file name -> the source file esbuild builds it from
+const ENTRY_POINTS = { "content.js": "src/content/content.ts", "background.js": "src/background/background.ts" };
+
+const problems = [];
+const check = (ok, message) => { if (!ok) problems.push(message); };
+const sorted = (list) => JSON.stringify([...(list ?? [])].sort());
+
+// versions
+check(manifest.version === pkg.version, `package.json version ${pkg.version} != manifest.json version ${manifest.version}`);
+check(/^\d+\.\d+\.\d+$/.test(manifest.version), `manifest version "${manifest.version}" is not x.y.z`);
+if (tag) check(tag === `v${manifest.version}`, `tag ${tag} does not match manifest version v${manifest.version}`);
+
+// store limits (Chrome Web Store: name 75, summary 132)
+check(manifest.name.length <= 75, `name is ${manifest.name.length} chars (max 75)`);
+check(manifest.description.length <= 132, `description is ${manifest.description.length} chars (max 132)`);
+
+// the store listing text must match the manifest summary (the store shows the manifest's)
+{
+  const listing = read("store", "listing-copy.md");
+  check(listing.includes(manifest.description), "store/listing-copy.md does not contain the manifest description verbatim");
+  const stated = listing.match(/\((\d+) characters\)/);
+  if (stated) check(Number(stated[1]) === manifest.description.length, `store/listing-copy.md says the summary is ${stated[1]} characters, it is ${manifest.description.length}`);
+}
+
+// permissions
+check(sorted(manifest.permissions) === sorted(EXPECTED_PERMISSIONS), `permissions changed: ${JSON.stringify(manifest.permissions)} (expected ${JSON.stringify(EXPECTED_PERMISSIONS)})`);
+check(sorted(manifest.host_permissions) === sorted(EXPECTED_HOSTS), `host permissions changed: ${JSON.stringify(manifest.host_permissions)}`);
+check(sorted(manifest.content_scripts?.flatMap((c) => c.matches)) === sorted(EXPECTED_CONTENT_MATCHES), `content script matches changed: ${JSON.stringify(manifest.content_scripts?.map((c) => c.matches))}`);
+for (const section of ["optional_permissions", "optional_host_permissions", "externally_connectable", "web_accessible_resources", "content_security_policy"]) {
+  check(!(section in manifest), `unexpected manifest section: ${section}`);
+}
+
+// the privacy policy page explains every permission the manifest asks for
+{
+  const privacy = read("landing", "privacy.html").replaceAll("&lt;", "<").replaceAll("&gt;", ">");
+  for (const name of [...manifest.permissions, ...manifest.host_permissions]) {
+    check(privacy.includes(name), `landing/privacy.html does not mention the permission "${name}"`);
+  }
+}
+
+// files the manifest points at exist (icons are copied from public/icons by the build; scripts are built from src/)
+for (const icon of new Set([...Object.values(manifest.icons ?? {}), ...Object.values(manifest.action?.default_icon ?? {})])) {
+  check(exists("public", "icons", basename(icon)), `manifest points at ${icon} but public/icons/${basename(icon)} is missing`);
+}
+for (const script of [manifest.background?.service_worker, ...(manifest.content_scripts ?? []).flatMap((c) => c.js)]) {
+  const source = ENTRY_POINTS[script];
+  check(source && exists(source), `manifest points at ${script}, which is not built from an existing source file (${source ?? "unknown entry"})`);
+}
+
+// source files
+function listFiles(dir) {
+  return readdirSync(dir).flatMap((name) => {
+    const path = join(dir, name);
+    return statSync(path).isDirectory() ? listFiles(path) : [path];
+  });
+}
+const sourceFiles = listFiles(join(ROOT, "src")).filter((f) => f.endsWith(".ts"));
+const lineOf = (text, index) => text.slice(0, index).split("\n").length;
+
+// bundled third-party code: every non-relative import is declared, installed, and credited
+{
+  const imported = new Set();
+  for (const path of sourceFiles) {
+    for (const [, from] of read(relative(ROOT, path)).matchAll(/^\s*import\b[^;]*?\bfrom\s+["']([^"']+)["']/gm)) {
+      if (!from.startsWith(".")) imported.add(from.startsWith("@") ? from.split("/").slice(0, 2).join("/") : from.split("/")[0]);
+    }
+  }
+  check(sorted([...imported]) === sorted(BUNDLED_DEPENDENCIES), `src imports ${JSON.stringify([...imported].sort())} but BUNDLED_DEPENDENCIES is ${JSON.stringify(BUNDLED_DEPENDENCIES)}`);
+  const notices = read("THIRD_PARTY_NOTICES.md");
+  for (const dep of BUNDLED_DEPENDENCIES) {
+    check(notices.includes(dep), `THIRD_PARTY_NOTICES.md does not credit ${dep}`);
+    check(dep in (pkg.devDependencies ?? {}) || dep in (pkg.dependencies ?? {}), `${dep} is bundled but not listed in package.json`);
+  }
+}
+
+// licensing and package metadata
+check(pkg.license === "MIT" && /^MIT License/.test(read("LICENSE")), "package.json license and LICENSE must both be MIT");
+check(pkg.private === true, "package.json must stay private (this repo is not published to npm)");
+check(/olaf-wilkosz\/louder-extension/.test(pkg.repository?.url ?? ""), "package.json repository.url does not point at this repository");
+
+// code patterns the stores reject, and things this extension promises never to do
+const ALLOWED_INNERHTML = [
+  /^""$/,                       // clearing
+  /^[A-Z][A-Z0-9_]*$/,          // a module constant (T_PLAY)
+  /^I\.\w+$/,                   // a static SVG icon from the icon table
+  /^\w+ \? I\.\w+ : I\.\w+$/,   // choosing between two of them
+  /^`[^`$]*`$/,                 // a template literal with no ${} interpolation
+];
+const FORBIDDEN = [
+  [/\beval\s*\(|new Function\s*\(/, "eval / new Function"],
+  [/\bfetch\s*\(|XMLHttpRequest|WebSocket|sendBeacon|EventSource|importScripts/, "a network API (the privacy policy promises no network requests of its own)"],
+  [/chrome\.cookies|\bdocument\.cookie\b/, "cookie access"],
+  [/insertAdjacentHTML|\.outerHTML\s*=|document\.write\s*\(/, "HTML injection (build DOM with createElement/textContent)"],
+  [/https?:\/\/(?!www\.w3\.org\/2000\/svg|github\.com\/olaf-wilkosz)[\w.-]+/, "a URL outside the allowed hosts (remote resources)"],
+];
+for (const path of sourceFiles) {
+  const name = relative(ROOT, path).replaceAll("\\", "/");
+  const text = readFileSync(path, "utf8");
+  for (const [pattern, what] of FORBIDDEN) {
+    const match = pattern.exec(text);
+    check(!match, `${name}:${match ? lineOf(text, match.index) : 0} contains ${what}`);
+  }
+  for (const match of text.matchAll(/\.innerHTML\s*=\s*([^;]+);/g)) {
+    const rhs = match[1].trim();
+    check(ALLOWED_INNERHTML.some((re) => re.test(rhs)), `${name}:${lineOf(text, match.index)} assigns innerHTML from something that is not a static constant: ${rhs.slice(0, 60)}`);
+  }
+}
+
+if (problems.length > 0) {
+  console.error(`Release check failed:\n${problems.map((p) => `  - ${p}`).join("\n")}`);
+  process.exit(1);
+}
+console.log(`Release check passed: ${manifest.name} v${manifest.version} (${manifest.description.length}/132 chars in the description)`);
