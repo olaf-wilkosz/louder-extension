@@ -50,7 +50,7 @@ if (tag) check(tag === `v${manifest.version}`, `tag ${tag} does not match manife
 }
 
 // files the project promises to have
-for (const file of ["LICENSE", "CHANGELOG.md", "SECURITY.md", ".github/ISSUE_TEMPLATE/config.yml"]) {
+for (const file of ["LICENSE", "CHANGELOG.md", "SECURITY.md", ".github/ISSUE_TEMPLATE/config.yml", "docs/architecture.md", "docs/accessibility-testing.md", "store/README.md"]) {
   check(exists(...file.split("/")), `${file} is missing`);
 }
 check(read("SECURITY.md").includes("olaf-wilkosz/louder-extension/security/advisories/new"), "SECURITY.md must point at the private vulnerability reporting page");
