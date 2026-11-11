@@ -35,7 +35,7 @@ jobs:
         run: npm run check
       - name: Build the website (fails on a missing file or anything loaded from another host)
         run: npm run site
-      - name: Audit the website (Lighthouse/axe: accessibility, best practices, SEO 100; performance >= 90)
+      - name: Audit the website (Lighthouse and axe - accessibility, best practices, SEO 100, performance at least 90)
         run: npm run audit:site
       - name: Build both packages (Chrome and Firefox) and the store zips
         run: npm run package
