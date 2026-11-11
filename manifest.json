@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Louder",
   "version": "1.0.0",
-  "description": "Distraction-free text-to-speech reader for the browser.",
+  "description": "Distraction-free text-to-speech reader. Reads any page or selection aloud with live word & sentence highlighting.",
   "action": {
     "default_icon": {
       "16":  "icons/icon16.png",

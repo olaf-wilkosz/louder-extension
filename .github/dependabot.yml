@@ -1,0 +1,23 @@
+version: 2
+updates:
+  # Dev dependencies (build tooling, TypeScript, jsdom, the bundled Readability).
+  # Minor and patch updates arrive as one PR a week; majors get their own PR.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  # The workflow actions are pinned to commit SHAs; this bumps them (and the version comment).
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns: ["*"]

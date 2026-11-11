@@ -4,6 +4,10 @@
 
 Distraction-free text-to-speech reader for the browser. Select any text, hit play, and Louder reads it aloud — highlighting each sentence and word as it goes, so your eyes and ears stay in sync.
 
+[![CI](https://github.com/olaf-wilkosz/louder-extension/actions/workflows/ci.yml/badge.svg)](https://github.com/olaf-wilkosz/louder-extension/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Manifest V3](https://img.shields.io/badge/manifest-v3-green)
+
 ## Features
 
 - **Read anything** — full pages, email (Gmail-aware), or just a selection
@@ -45,7 +49,10 @@ Louder isn't on the Chrome Web Store yet. To try it now, load it as an unpacked 
 npm run build      # build to dist/
 npm run typecheck  # TypeScript check, no emit
 npm test           # unit tests (node:test) for the text-matching and extraction logic (pure + jsdom); needs Node 22.22.2+
+npm run check      # release checks: versions, store limits, permissions, bundled licenses, forbidden patterns
 ```
+
+CI (`.github/workflows/ci.yml`) runs typecheck, tests, the release checks and the build on every push and pull request, and attaches the built extension (`dist/`) to the run as an artifact, so a PR can be tried before it is merged. Release checks guard what the stores and the privacy policy depend on: the permission list is frozen (changing it is a deliberate edit of `scripts/check-release.mjs`, the privacy page and the listing), nothing in `src/` may use network APIs, `eval` or inject HTML except from static icon constants, and every bundled third-party package must be credited in `THIRD_PARTY_NOTICES.md`.
 
 After any change, rebuild and reload the extension from `chrome://extensions` (or refresh the specific tab you're testing on, since content scripts don't hot-reload).
 
