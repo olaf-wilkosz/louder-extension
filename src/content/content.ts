@@ -2,6 +2,7 @@ import { Readability } from "@mozilla/readability";
 import { TextIndex, WordCursor } from "./text-index.ts";
 import { splitSentences } from "./sentences.ts";
 import { detectLanguageFromText } from "./language.ts";
+import { bodyTextFromNodes, collectTextNodes, gmailBodyText, rangeInNodes, type TextNodeEntry } from "./dom-text.ts";
 
 /* ═══════════════════════════════════════════════════════════════════
    DESIGN TOKENS
@@ -522,64 +523,6 @@ function calcElapsed(): number {
   return realElapsedBase + (Date.now() - sentenceStartTime) / 1000;
 }
 
-/** Walk a Gmail .ii.gt body element and return its text, including emoji
- *  characters that Gmail converts to <img> elements (innerText misses those). */
-function gmailBodyText(root: HTMLElement): string {
-  // innerText gives us the rendered text respecting CSS, block boundaries, etc.
-  // We then patch in any emoji that Gmail rendered as <img alt="🖐️" ...>.
-  // Strategy: build a parallel walker result that inserts img alt values for
-  // images whose alt contains emoji, then merge with the innerText positions.
-  // Simpler alternative that works well in practice: replace each emoji <img>
-  // placeholder in innerText with the alt value. Gmail's innerText leaves a
-  // space or nothing where the image was, so we can't rely on position —
-  // instead we rebuild text via a TreeWalker (same as bodyTextFromNodes) and
-  // include img emoji alt inline.
-  const BLOCK = new Set([
-    "P","DIV","BR","LI","TR","TD","TH","H1","H2","H3","H4","H5","H6",
-    "BLOCKQUOTE","PRE","TABLE","THEAD","TBODY","TFOOT","CAPTION",
-    "ARTICLE","SECTION","HEADER","FOOTER","MAIN",
-  ]);
-  const parts: string[] = [];
-  let lastWasBlock = false;
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, visibleFilter);
-  let node: Node | null;
-  while ((node = walker.nextNode())) {
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      const el = node as Element;
-      if (BLOCK.has(el.tagName)) {
-        if (!lastWasBlock && parts.length) parts.push("\n\n");
-        lastWasBlock = true;
-      }
-      // Capture all meaningful alt text — not just emoji. Marketing/newsletter
-      // emails often convey their actual content through images (banners,
-      // buttons, icon rows) with properly authored alt text; skipping
-      // non-emoji alts left those emails reading as nearly empty.
-      // Trailing space guards against alt text running into adjacent text/alt
-      // with no separating whitespace (e.g. icon rows with no gap between <img>s).
-      if (el.tagName === "IMG") {
-        const alt = ((el as HTMLImageElement).alt ?? "").trim();
-        if (alt) {
-          parts.push(`${alt} `);
-          lastWasBlock = false;
-        }
-      }
-    } else {
-      const parent = (node as Text).parentElement;
-      if (parent && (parent.tagName === "SCRIPT" || parent.tagName === "STYLE")) continue;
-      const t = (node as Text).textContent ?? "";
-      const collapsed = t.replace(/\s+/g, " ");
-      if (!collapsed.trim()) {
-        if (lastWasBlock) continue;
-        parts.push(collapsed);
-      } else {
-        parts.push(t);
-        lastWasBlock = false;
-      }
-    }
-  }
-  return parts.join("").replace(/\n{3,}/g, "\n\n").trim();
-}
-
 /** Extract email body text from Gmail's stable DOM containers.
  *  Returns null if not on Gmail or no body found. */
 function extractGmailText(): string | null {
@@ -652,7 +595,7 @@ function extractText(): string {
   //    node-walker which stays in sync with buildNodeCache().
   const isEmailLayout = !!document.querySelector("font[face], font[color], font[size]")
     || document.querySelectorAll("table table table").length >= 3;
-  if (isEmailLayout) return bodyTextFromNodes();
+  if (isEmailLayout) return bodyTextFromNodes(document.body);
 
   // 4. Readability for article/blog pages — score before trusting it
   try {
@@ -670,54 +613,12 @@ function extractText(): string {
   // 6. Raw fallback — walk text nodes directly (same as buildNodeCache) so
   //    alt attributes, <script>, and <style> content are never included,
   //    keeping extractText() in sync with the highlight node cache.
-  return bodyTextFromNodes();
-}
-
-/** Walk document.body text nodes and join them, inserting a newline whenever
- *  a block-level element boundary is crossed. This produces text that is
- *  semantically equivalent to innerText for content purposes but excludes
- *  img alt text and other non-text-node content, keeping it in sync with
- *  buildNodeCache(). */
-function bodyTextFromNodes(): string {
-  const BLOCK = new Set([
-    "P","DIV","BR","LI","TR","TD","TH","H1","H2","H3","H4","H5","H6",
-    "BLOCKQUOTE","PRE","ARTICLE","SECTION","HEADER","FOOTER","MAIN",
-    "NAV","ASIDE","FIGURE","FIGCAPTION","TABLE","THEAD","TBODY","TFOOT",
-    "CAPTION","DL","DT","DD","OL","UL","FORM","FIELDSET","ADDRESS","HR",
-  ]);
-  const parts: string[] = [];
-  let lastWasBlock = false;
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, visibleFilter);
-  let node: Node | null;
-  while ((node = walker.nextNode())) {
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      const tag = (node as Element).tagName;
-      if (BLOCK.has(tag)) {
-        if (!lastWasBlock && parts.length) parts.push("\n\n");
-        lastWasBlock = true;
-      }
-    } else {
-      // Text node — skip script/style content
-      const parent = (node as Text).parentElement;
-      if (parent && (parent.tagName === "SCRIPT" || parent.tagName === "STYLE")) continue;
-      const t = (node as Text).textContent ?? "";
-      // Collapse whitespace-only runs at block boundaries
-      const collapsed = t.replace(/\s+/g, " ");
-      if (!collapsed.trim()) {
-        if (lastWasBlock) continue; // skip leading space after block boundary
-        parts.push(collapsed);
-      } else {
-        parts.push(t);
-        lastWasBlock = false;
-      }
-    }
-  }
-  return parts.join("").replace(/\n{3,}/g, "\n\n").trim();
+  return bodyTextFromNodes(document.body);
 }
 
 // ── Text-node cache for CSS Highlight API ─────────────────────────────────
 // Rebuilt once per TTS session; reused for every sentence + word highlight.
-let nodeCache: { node: Text; start: number }[] = [];
+let nodeCache: TextNodeEntry[] = [];
 // The page text and how sentences/words are located in it live in text-index.ts (pure,
 // unit-tested). `textIndex` is rebuilt by every buildNodeCache(); `wordCursor` is created each
 // time a sentence is located and tracks the position of the words spoken within it.
@@ -739,20 +640,6 @@ document.addEventListener("scroll", () => {
   if (!autoScrolling) followSuspended = true;
 }, { passive: true, capture: true });
 
-/** NodeFilter shared by buildNodeCache() and bodyTextFromNodes().
- *  FILTER_REJECT on hidden elements prunes them AND all their children from
- *  the walk — keeps both functions in sync with what the browser renders,
- *  and prevents display:none preheader text from leaking into TTS or highlights. */
-const visibleFilter: NodeFilter = {
-  acceptNode(node: Node): number {
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      const st = window.getComputedStyle(node as Element);
-      if (st.display === "none" || st.visibility === "hidden") return NodeFilter.FILTER_REJECT;
-    }
-    return NodeFilter.FILTER_ACCEPT;
-  }
-};
-
 /** Returns the same root element used by extractText() so the node cache
  *  is scoped to content only — avoids false indexOf() hits in Gmail's email
  *  preview list, ChatGPT UI chrome, etc. */
@@ -771,61 +658,17 @@ function getHighlightRoot(): Element {
 }
 
 function buildNodeCache(): void {
-  const root = getHighlightRoot();
-  nodeCache = [];
-  let pos = 0;
-  const fullTextParts: string[] = [];
-  // On Gmail, gmailBodyText() (which builds the spoken `sentences`) inlines
-  // meaningful img alt text into the extracted text — marketing emails often
-  // convey real content that way (banners, buttons). If that alt text isn't
-  // also reflected here, a "sentence" containing it can't be found in
-  // fullText at all — or worse, coincidentally matches unrelated real text
-  // elsewhere (e.g. a brand name that's both a logo's alt text and mentioned
-  // in the body copy), which throws off the forward search anchor for every
-  // sentence after it. No nodeCache entry is added for the alt text itself
-  // since there's no text node backing it to actually highlight.
-  const isGmail = location.hostname.includes("mail.google.com");
-  // SHOW_ELEMENT is required so visibleFilter can FILTER_REJECT hidden subtrees
-  // (and, on Gmail, so IMG elements are visited for their alt text below).
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, visibleFilter);
-  let n: Node | null;
-  while ((n = walker.nextNode())) {
-    if (n.nodeType === Node.ELEMENT_NODE) {
-      if (isGmail && (n as Element).tagName === "IMG") {
-        const alt = ((n as HTMLImageElement).alt ?? "").trim();
-        if (alt) {
-          const withSpace = `${alt} `;
-          fullTextParts.push(withSpace);
-          pos += withSpace.length;
-        }
-      }
-      continue;
-    }
-    const textNode = n as Text;
-    const parent = textNode.parentElement;
-    if (parent && (parent.tagName === "SCRIPT" || parent.tagName === "STYLE")) continue;
-    const text = textNode.textContent ?? "";
-    const len = text.length;
-    if (len) { nodeCache.push({ node: textNode, start: pos }); fullTextParts.push(text); }
-    pos += len;
-  }
-  textIndex = new TextIndex(fullTextParts.join("")); // also resets the sentence anchor
+  // On Gmail the spoken text (gmailBodyText) inlines image alt text, so the search index
+  // must too — see collectTextNodes().
+  const { nodes, text } = collectTextNodes(getHighlightRoot(), {
+    inlineImageAlt: location.hostname.includes("mail.google.com"),
+  });
+  nodeCache = nodes;
+  textIndex = new TextIndex(text); // also resets the sentence anchor
 }
 
 function rangeAt(start: number, end: number): Range | null {
-  let sNode: Text | null = null, sOff = 0, eNode: Text | null = null, eOff = 0;
-  for (const { node, start: ns } of nodeCache) {
-    const ne = ns + (node.textContent?.length ?? 0);
-    if (!sNode && ne > start) { sNode = node; sOff = start - ns; }
-    if (!eNode && ne >= end)  { eNode = node; eOff = end   - ns; break; }
-  }
-  if (!sNode || !eNode) return null;
-  try {
-    const r = document.createRange();
-    r.setStart(sNode, Math.max(0, sOff));
-    r.setEnd(eNode, Math.min(eNode.textContent?.length ?? 0, eOff));
-    return r;
-  } catch { return null; }
+  return rangeInNodes(nodeCache, start, end);
 }
 
 function scrollRangeIntoView(range: Range): void {

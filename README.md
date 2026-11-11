@@ -44,7 +44,7 @@ Louder isn't on the Chrome Web Store yet. To try it now, load it as an unpacked 
 ```bash
 npm run build      # build to dist/
 npm run typecheck  # TypeScript check, no emit
-npm test           # unit tests (node:test) for the pure text-matching logic; needs Node 22.18+
+npm test           # unit tests (node:test) for the text-matching and extraction logic (pure + jsdom); needs Node 22.22.2+
 ```
 
 After any change, rebuild and reload the extension from `chrome://extensions` (or refresh the specific tab you're testing on, since content scripts don't hot-reload).
