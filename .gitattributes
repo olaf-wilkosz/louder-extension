@@ -1,0 +1,9 @@
+# One line-ending style everywhere, whatever the OS or the user's core.autocrlf:
+# text files are LF in the repository AND in the working tree (Windows included).
+* text=auto eol=lf
+
+# Never touch binary files
+*.png  binary
+*.jpg  binary
+*.webp binary
+*.woff2 binary
