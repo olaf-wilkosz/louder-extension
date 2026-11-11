@@ -78,6 +78,21 @@ const I = {
   star:    `<svg width="11" height="11" viewBox="0 0 14 14" fill="currentColor"><path d="M7 1l1.5 4 4.5.7-3.3 3.1.8 4.7L7 11.5l-3.5 1.9.8-4.7L1 5.7 5.5 5z"/></svg>`,
 };
 
+// Icons are inserted by parsing the SVG as XML and importing the element, never by assigning HTML:
+// nothing here can run as markup, and the store linters have nothing to flag.
+const SVG_NS = "http://www.w3.org/2000/svg";
+const svgParser = new DOMParser();
+function setIcon(el: Element, markup: string): void {
+  const doc = svgParser.parseFromString(markup.replace("<svg ", `<svg xmlns="${SVG_NS}" `), "image/svg+xml");
+  el.replaceChildren(document.importNode(doc.documentElement, true));
+}
+function labelSpan(text: string): HTMLSpanElement {
+  const span = document.createElement("span");
+  span.className = "panel-lbl";
+  span.textContent = text;
+  return span;
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    SHADOW CSS  —  all state driven by [data-state] on .root
 ═══════════════════════════════════════════════════════════════════ */
@@ -1098,7 +1113,7 @@ class LouderWidget {
 
   // ── Build DOM (called once) ───────────────────────────────────────
   private buildDOM(): void {
-    this.shadow.innerHTML = "";
+    this.shadow.replaceChildren();
 
     const styleEl = document.createElement("style");
     styleEl.textContent = SHADOW_CSS;
@@ -1121,7 +1136,7 @@ class LouderWidget {
     // Close button — was a plain <div>, not keyboard-operable at all
     const closeBtn = document.createElement("div");
     closeBtn.className = "close-btn";
-    closeBtn.innerHTML = I.close;
+    setIcon(closeBtn, I.close);
     closeBtn.setAttribute("role", "button");
     closeBtn.setAttribute("tabindex", "0");
     closeBtn.setAttribute("aria-label", "Close");
@@ -1137,7 +1152,7 @@ class LouderWidget {
     this.chevBtnEl.setAttribute("aria-label", "Expand");
     const chevIcon = document.createElement("span");
     chevIcon.className = "chev-icon";
-    chevIcon.innerHTML = I.chev;
+    setIcon(chevIcon, I.chev);
     this.chevBtnEl.appendChild(chevIcon);
     this.chevBtnEl.addEventListener("click", () => {
       if (this.wState === "collapsed") {
@@ -1162,7 +1177,7 @@ class LouderWidget {
     this.settingsBtnEl.setAttribute("aria-label", "Settings");
     this.settingsBtnEl.setAttribute("aria-haspopup", "dialog");
     this.settingsBtnEl.setAttribute("aria-expanded", "false");
-    this.settingsBtnEl.innerHTML = I.sliders;
+    setIcon(this.settingsBtnEl, I.sliders);
     this.settingsBtnEl.addEventListener("click", () => this.togglePopup("settings", this.settingsBtnEl));
     expandable.appendChild(this.settingsBtnEl);
 
@@ -1171,7 +1186,7 @@ class LouderWidget {
     readSelBtn.className = "icon-btn";
     readSelBtn.title = "Read it louder!";
     readSelBtn.setAttribute("aria-label", "Read selection aloud");
-    readSelBtn.innerHTML = I.readSel;
+    setIcon(readSelBtn, I.readSel);
     readSelBtn.addEventListener("click", () => {
       const sel = window.getSelection()?.toString().trim();
       this.startPlaying(sel || undefined);
@@ -1199,7 +1214,7 @@ class LouderWidget {
     this.voiceBtnEl.setAttribute("aria-label", "Voice");
     this.voiceBtnEl.setAttribute("aria-haspopup", "dialog");
     this.voiceBtnEl.setAttribute("aria-expanded", "false");
-    this.voiceBtnEl.innerHTML = I.person;
+    setIcon(this.voiceBtnEl, I.person);
     this.voiceBtnEl.addEventListener("click", () => this.togglePopup("voice", this.voiceBtnEl));
     expandable.appendChild(this.voiceBtnEl);
 
@@ -1226,7 +1241,7 @@ class LouderWidget {
     skipBack.className = "skip-btn";
     skipBack.title = "Previous sentence";
     skipBack.setAttribute("aria-label", "Previous sentence");
-    skipBack.innerHTML = I.stepBack;
+    setIcon(skipBack, I.stepBack);
     skipBack.addEventListener("click", () => {
       if (!sentences.length) return;
       const newIdx = Math.max(0, currentIndex - 1);
@@ -1242,7 +1257,7 @@ class LouderWidget {
     skipFwd.className = "skip-btn";
     skipFwd.title = "Next sentence";
     skipFwd.setAttribute("aria-label", "Next sentence");
-    skipFwd.innerHTML = I.stepFwd;
+    setIcon(skipFwd, I.stepFwd);
     skipFwd.addEventListener("click", () => {
       if (!sentences.length) return;
       const newIdx = Math.min(sentences.length - 1, currentIndex + 1);
@@ -1351,7 +1366,7 @@ class LouderWidget {
     this.voiceBtnEl.setAttribute("aria-expanded",    String(id === "voice"));
 
     this.root.toggleAttribute("data-panel-open", !!id);
-    this.panelsCont.innerHTML = "";
+    this.panelsCont.replaceChildren();
     if (!id) { this.spRefs = null; return; }
 
     const wrap = document.createElement("div");
@@ -1409,7 +1424,7 @@ class LouderWidget {
     const hdrWpm = document.createElement("div"); hdrWpm.className = "speed-hdr-wpm"; hdrWpm.textContent = `${wpm} wpm`;
     hdrInfo.appendChild(hdrVal); hdrInfo.appendChild(hdrWpm); hdr.appendChild(hdrInfo);
     const hdrClose = document.createElement("div");
-    hdrClose.className = "panel-close"; hdrClose.innerHTML = I.close;
+    hdrClose.className = "panel-close"; setIcon(hdrClose, I.close);
     hdrClose.setAttribute("aria-label", "Close");
     hdrClose.addEventListener("click", () => this.setPopup(null));
     hdr.appendChild(hdrClose);
@@ -1509,9 +1524,9 @@ class LouderWidget {
 
     const hdr = document.createElement("div");
     hdr.className = "panel-hdr";
-    hdr.innerHTML = `<span class="panel-lbl">Voices</span>`;
+    hdr.append(labelSpan("Voices"));
     const hdrClose = document.createElement("div");
-    hdrClose.className = "panel-close"; hdrClose.innerHTML = I.close;
+    hdrClose.className = "panel-close"; setIcon(hdrClose, I.close);
     hdrClose.setAttribute("aria-label", "Close");
     hdrClose.addEventListener("click", () => this.setPopup(null));
     hdr.appendChild(hdrClose);
@@ -1539,7 +1554,7 @@ class LouderWidget {
       before.set(el.dataset.uri!, el.getBoundingClientRect());
     });
 
-    list.innerHTML = "";
+    list.replaceChildren();
 
     const allVoices = this.getRelevantVoices().filter(v => v.voiceURI);
     const pinnedSet = new Set(this.pinnedVoices);
@@ -1555,7 +1570,7 @@ class LouderWidget {
       // The row is a container; the voice itself is a real <button> so it can be reached with
       // Tab and chosen with Enter/Space. (Its click bubbles to the row's handler below.)
       const select  = document.createElement("button"); select.className = "voice-select";
-      const avatar  = document.createElement("div"); avatar.className = "voice-avatar"; avatar.innerHTML = I.person;
+      const avatar  = document.createElement("div"); avatar.className = "voice-avatar"; setIcon(avatar, I.person);
       const textDiv = document.createElement("div"); textDiv.style.flex = "1";
       const nameEl  = document.createElement("div"); nameEl.className = "voice-name"; nameEl.textContent = name;
       const hintEl  = document.createElement("div"); hintEl.className = "voice-hint"; hintEl.textContent = hint;
@@ -1570,7 +1585,7 @@ class LouderWidget {
         pinBtn.className = `pin-btn${isPinned ? " pinned" : ""}`;
         pinBtn.title     = isPinned ? "Unpin" : "Pin to top";
         pinBtn.setAttribute("aria-label", `${isPinned ? "Unpin" : "Pin"} ${name}`);
-        pinBtn.innerHTML = isPinned ? I.star : I.starOut;
+        setIcon(pinBtn, isPinned ? I.star : I.starOut);
         pinBtn.addEventListener("click", e => {
           e.stopPropagation();
           this.togglePinVoice(uri);
@@ -1660,9 +1675,9 @@ class LouderWidget {
 
     const hdr = document.createElement("div");
     hdr.className = "panel-hdr";
-    hdr.innerHTML = `<span class="panel-lbl">Settings</span>`;
+    hdr.append(labelSpan("Settings"));
     const hdrClose = document.createElement("div");
-    hdrClose.className = "panel-close"; hdrClose.innerHTML = I.close;
+    hdrClose.className = "panel-close"; setIcon(hdrClose, I.close);
     hdrClose.setAttribute("aria-label", "Close");
     hdrClose.addEventListener("click", () => this.setPopup(null));
     hdr.appendChild(hdrClose);
@@ -1865,7 +1880,7 @@ class LouderWidget {
    *  was previously set once at creation and never updated, so screen
    *  readers always announced "Play" even while actively playing. */
   private setPlayIcon(playing: boolean): void {
-    this.playBtnEl.innerHTML = playing ? I.pause : I.play;
+    setIcon(this.playBtnEl, playing ? I.pause : I.play);
     this.playBtnEl.title = playing ? "Pause" : "Play";
     this.playBtnEl.setAttribute("aria-label", playing ? "Pause" : "Play");
   }
@@ -2128,9 +2143,9 @@ const tShadow = tRootHost.attachShadow({ mode: "closed" });
 
 // ── DOM ──────────────────────────────────────────────────────────
 const tHost    = document.createElement("div");  tHost.id = "louder-trigger";
-const tIcon    = document.createElement("div");  tIcon.id = "louder-trigger-icon";    tIcon.innerHTML = T_PLAY;
+const tIcon    = document.createElement("div");  tIcon.id = "louder-trigger-icon";    setIcon(tIcon, T_PLAY);
 const tLabel   = document.createElement("span"); tLabel.id = "louder-trigger-label";  tLabel.textContent = "Read it louder!";
-const tDismiss = document.createElement("div");  tDismiss.id = "louder-trigger-dismiss"; tDismiss.innerHTML = T_CLOSE;
+const tDismiss = document.createElement("div");  tDismiss.id = "louder-trigger-dismiss"; setIcon(tDismiss, T_CLOSE);
 
 // Keyboard-operable + properly named for assistive tech. The accessible name
 // leads with "Louder extension:" — real, visible-adjacent context (not hidden
