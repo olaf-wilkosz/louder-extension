@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The quiet comeback of reading aloud</title>
+<!--
+  The page the store screenshots and the website images are taken of. It is an ordinary
+  article (original text, no third-party branding) with the REAL built extension
+  (dist/chrome/content.js) running on it. Only two things are stand-ins, because a headless
+  browser has neither: the chrome.* storage/messaging API and the speech engine.
+  scripts/render-store.mjs drives it; the scene is chosen by the query string:
+    page=light|dark   the article's own colours        (default light)
+    aside=0           hide the side column
+    col=330           width of the text column (px)
+    theme=dark|light  the widget theme                  (default dark)
+    preset=amber|midnight|forest|paper                  (default amber)
+    speed=1           reading speed
+    top=24 right=80   widget position
+-->
+<style>
+@font-face { font-family: "DM Sans"; font-weight: 100 1000; font-display: block; src: url("/landing/fonts/dm-sans-latin-wght-normal.woff2") format("woff2"); }
+:root { --bg: #fbfaf7; --text: #1d2321; --muted: #5d6965; --rule: #e3e0d8; --link: #00695c; }
+:root[data-page="dark"] { --bg: #14181a; --text: #e6ebe9; --muted: #9aa6a2; --rule: #2a3235; --link: #5fe0cf; }
+html { background: var(--bg); }
+body { margin: 0; font-family: "DM Sans", system-ui, sans-serif; color: var(--text); background: var(--bg); }
+.top { display: flex; align-items: center; gap: 12px; padding: 18px 40px; border-bottom: 1px solid var(--rule); font-size: 15px; color: var(--muted); }
+.top b { color: var(--text); font-weight: 700; letter-spacing: -.01em; }
+.top span { margin-left: auto; display: flex; gap: 22px; }
+.layout { display: flex; gap: 48px; padding: 0 40px 0 6vw; }
+main { flex: 0 0 var(--col, 600px); padding: 44px 0 60px; }
+aside { margin-left: auto; width: 250px; padding-top: 150px; color: var(--muted); font-size: 14px; }
+:root[data-aside="off"] aside { visibility: hidden; }
+aside h2 { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 14px; font-weight: 600; }
+aside p { font-size: 15px; line-height: 1.4; margin: 0 0 16px; color: var(--text); opacity: .75; }
+.kicker { color: var(--link); font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 12px; }
+h1 { font-size: 40px; line-height: 1.12; letter-spacing: -.02em; margin: 0 0 14px; font-weight: 800; }
+.byline { color: var(--muted); font-size: 14px; margin: 0 0 30px; }
+p { font-size: 18.5px; line-height: 1.7; margin: 0 0 22px; }
+</style>
+</head>
+<body>
+<div class="top"><b>The Margin Notes</b></div>
+<div class="layout">
+<main>
+  <p class="kicker">Field notes</p>
+  <h1>The quiet comeback of reading aloud</h1>
+  <p class="byline">By Mara Keller · 6 min read</p>
+  <p id="p1">Long before printing presses, reading was something people did together, out loud. A page was a small performance, and the listener's ear caught what a hurried eye would skip. Today the habit is returning quietly, one browser tab at a time.</p>
+  <p id="p2">Listening to an article while you cook, stretch or rest your eyes changes how it lands. Sentences you would have skimmed get their full length, and the shape of an argument is easier to follow when every clause arrives in order.</p>
+  <p id="p3">Writers notice it first. A paragraph that looked fine on screen sounds clumsy at normal speed, and a stray comma suddenly demands a breath. Hearing your own draft read back is the cheapest editor there is.</p>
+  <p id="p4">There is a practical side too. Long reads pile up in a browser, and not every evening leaves room for them. Turning a saved page into something you can listen to on a walk gives those tabs a second life.</p>
+</main>
+<aside><h2>More from the notebook</h2><p>What a good pencil teaches about slow reading</p><p>Ten pages, one evening: a small reading rule</p><p>Why audiobooks are not cheating</p></aside>
+</div>
+
+<script>
+// ── scene parameters ──
+const Q = new URLSearchParams(location.search);
+document.documentElement.dataset.page = Q.get("page") || "light";
+if (Q.get("col")) document.documentElement.style.setProperty("--col", Q.get("col") + "px");
+if (Q.get("aside") === "0") document.documentElement.dataset.aside = "off"; // keeps text from showing through a popup
+
+// ── stand-in for chrome.* (storage and messaging); the real extension code does the rest ──
+const store = {
+  themeChoice: Q.get("theme") || "dark",
+  highlightPreset: Q.get("preset") || "amber",
+  speed: Number(Q.get("speed") || 1),
+  selectedVoiceURI: "aria",
+  pinnedVoices: ["aria", "guy"],
+  panelTop: Number(Q.get("top") || 24),
+  panelRight: Number(Q.get("right") || 40),
+};
+window.chrome = {
+  runtime: {
+    id: "render", lastError: null,
+    connect: () => ({ onDisconnect: { addListener() {} } }),
+    onMessage: { addListener(fn) { window.__louderMessage = fn; } },
+  },
+  storage: {
+    local: { get(keys, cb) { cb(store); }, set(o) { Object.assign(store, o); } },
+    onChanged: { addListener() {} },
+  },
+};
+
+// ── stand-in for the speech engine: fixed voices, and speech that can be frozen mid-sentence ──
+// speak() ends utterances instantly until `window.__speech.skip` have gone by, then walks the next
+// one word by word up to `window.__speech.word` and stops there, so the highlight holds still.
+const voice = (id, name, lang) => ({ voiceURI: id, name, lang, default: false, localService: true });
+const VOICES = [
+  voice("aria", "Microsoft Aria - English (United States)", "en-US"),
+  voice("guy", "Microsoft Guy - English (United States)", "en-US"),
+  voice("jenny", "Microsoft Jenny - English (United States)", "en-US"),
+  voice("sonia", "Microsoft Sonia - English (United Kingdom)", "en-GB"),
+  voice("ryan", "Microsoft Ryan - English (United Kingdom)", "en-GB"),
+  voice("zofia", "Microsoft Zofia - Polish (Poland)", "pl-PL"),
+  voice("marek", "Microsoft Marek - Polish (Poland)", "pl-PL"),
+];
+window.__speech = { skip: 0, word: 3, spoken: 0 };
+const fake = {
+  speaking: false, paused: false,
+  getVoices: () => VOICES,
+  addEventListener() {}, removeEventListener() {},
+  cancel() { fake.speaking = false; },
+  pause() { fake.paused = true; }, resume() { fake.paused = false; },
+  speak(utt) {
+    const n = window.__speech.spoken++;
+    fake.speaking = true;
+    if (n < window.__speech.skip) { setTimeout(() => utt.onend?.({}), 1); return; }
+    const words = [...utt.text.matchAll(/\S+/g)];
+    let i = 0;
+    const step = () => {
+      if (i > window.__speech.word || i >= words.length) return; // hold here: the frame is taken now
+      const w = words[i++];
+      utt.onboundary?.({ name: "word", charIndex: w.index, charLength: w[0].length });
+      setTimeout(step, 30);
+    };
+    setTimeout(step, 30);
+  },
+};
+Object.defineProperty(window, "speechSynthesis", { value: fake, configurable: true });
+// A real utterance only accepts a real SpeechSynthesisVoice; ours are plain objects, so let it keep them.
+Object.defineProperty(SpeechSynthesisUtterance.prototype, "voice", { configurable: true, get() { return this._voice ?? null; }, set(v) { this._voice = v; } });
+</script>
+<script src="/dist/chrome/content.js"></script>
+<script>window.__ready = true;</script>
+</body>
+</html>
