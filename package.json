@@ -1,15 +1,33 @@
 {
   "name": "louder-extension",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "private": true,
+  "description": "Louder: a distraction-free text-to-speech reader for the browser with live word and sentence highlighting (Manifest V3, TypeScript + esbuild).",
+  "author": "Olaf Wilkosz",
+  "license": "MIT",
+  "homepage": "https://olaf-wilkosz.github.io/louder-extension/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/olaf-wilkosz/louder-extension.git"
+  },
+  "bugs": {
+    "url": "https://github.com/olaf-wilkosz/louder-extension/issues"
+  },
+  "keywords": [
+    "text-to-speech",
+    "tts",
+    "browser-extension",
+    "chrome-extension",
+    "manifest-v3",
+    "accessibility"
+  ],
   "scripts": {
     "build": "node build.js",
     "typecheck": "tsc --noEmit"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "engines": {
+    "node": ">=22"
+  },
   "devDependencies": {
     "@mozilla/readability": "^0.6.0",
     "@resvg/resvg-js": "^2.6.2",

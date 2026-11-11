@@ -56,4 +56,4 @@ Louder stores your preferences locally and never transmits any data. See the [Pr
 
 ## License
 
-ISC
+[MIT](LICENSE) &copy; Olaf Wilkosz. The built extension bundles [@mozilla/readability](https://github.com/mozilla/readability) (Apache-2.0); see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

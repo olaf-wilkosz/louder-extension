@@ -1,2 +1,15 @@
+# local tool settings (Claude Code etc.) -- not part of the repo, and the repo is published as-is
+.claude/
+
+# system / editor
+Thumbs.db
+.DS_Store
+.vscode/
+.idea/
+
+# dependencies and build output
 node_modules/
 dist/
+
+# store packages built locally
+*.zip
