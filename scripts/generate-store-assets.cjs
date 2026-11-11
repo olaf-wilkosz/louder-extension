@@ -1,6 +1,6 @@
 // One-time script: render Chrome Web Store promo tiles (small + marquee)
 // as PNGs from an SVG template reusing the extension's icon mark.
-// Run: node scripts/generate-store-assets.js
+// Run: node scripts/generate-store-assets.cjs
 const fs = require("fs");
 const path = require("path");
 const { Resvg } = require("@resvg/resvg-js");

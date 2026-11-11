@@ -1,5 +1,5 @@
 // One-time script: rasterise SVG icons to PNG for Chrome extension manifest.
-// Run: node scripts/convert-icons.js
+// Run: node scripts/convert-icons.cjs
 const fs   = require("fs");
 const path = require("path");
 const { Resvg } = require("@resvg/resvg-js");

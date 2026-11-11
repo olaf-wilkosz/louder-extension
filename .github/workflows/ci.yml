@@ -33,12 +33,18 @@ jobs:
         run: npm test
       - name: Release checks (versions, store limits, permissions, bundled licenses, forbidden patterns)
         run: npm run check
-      - name: Build the extension
-        run: npm run build
+      - name: Build both packages (Chrome and Firefox) and the store zips
+        run: npm run package
       # The built extension of this commit: download it from the run to try a PR before merging.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: louder-extension-dist
           path: dist/
+          retention-days: 14
+          if-no-files-found: error
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: louder-extension-zips
+          path: release/*.zip
           retention-days: 14
           if-no-files-found: error
