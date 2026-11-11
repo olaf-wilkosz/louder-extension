@@ -62,11 +62,11 @@ npm run audit:site # Lighthouse on the built site: a11y / best practices / SEO 1
 
 `npm run dev` (and `npm run dev:firefox`) rebuild the bundles on every change in `src/`; reload the extension in the browser after a change. The browser version numbers above live in `scripts/build-config.mjs` (one place for the bundle target, the manifest, this README and the store listing; the release checks keep them in sync).
 
-CI (`.github/workflows/ci.yml`) runs typecheck, tests, the release checks and the build on every push and pull request, and attaches the built Chrome extension (`dist/chrome/`) and both store zips to the run as artifacts, so a PR can be tried before it is merged. Release checks guard what the stores and the privacy policy depend on: the permission list is frozen (changing it is a deliberate edit of `scripts/check-release.mjs`, the privacy page and the listing), nothing in `src/` may use network APIs, `eval` or inject HTML except from static icon constants, and every bundled third-party package must be credited in `THIRD_PARTY_NOTICES.md`.
+CI (`.github/workflows/ci.yml`) runs typecheck, tests, the release checks, the website build and its Lighthouse audit, and the package build on every push and pull request, and attaches the built Chrome extension (`dist/chrome/`) and both store zips to the run as artifacts, so a PR can be tried before it is merged. Release checks guard what the stores and the privacy policy depend on: the permission list is frozen (changing it is a deliberate edit of `scripts/check-release.mjs`, the privacy page and the listing), nothing in `src/` may use network APIs, `eval` or inject HTML except from static icon constants, and every bundled third-party package must be credited in `THIRD_PARTY_NOTICES.md`.
 
 After any change, rebuild and reload the extension from `chrome://extensions` (or refresh the specific tab you're testing on, since content scripts don't hot-reload).
 
-The codebase is TypeScript + esbuild, no frameworks. The widget lives entirely in a Shadow DOM for CSS isolation; the selection trigger lives in its own closed Shadow DOM so its text never leaks into page-content extraction tools.
+The codebase is TypeScript + esbuild, no frameworks. How reading, matching and highlighting work, and why, is in [docs/architecture.md](docs/architecture.md); the manual pass for UI changes is [docs/accessibility-testing.md](docs/accessibility-testing.md); store submission steps are in [store/README.md](store/README.md). The widget lives entirely in a Shadow DOM for CSS isolation; the selection trigger lives in its own closed Shadow DOM so its text never leaks into page-content extraction tools.
 
 ### Releasing
 
