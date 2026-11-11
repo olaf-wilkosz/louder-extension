@@ -3,7 +3,7 @@
 Add-Type -AssemblyName System.Drawing
 
 $srcDir = Join-Path $PSScriptRoot "..\docs\screenshots"
-$outDir = Join-Path $PSScriptRoot "..\landing"
+$outDir = Join-Path $PSScriptRoot "..\landing\img"
 
 function Crop($srcName, $outName, $x, $y, $w, $h) {
     $img = [System.Drawing.Image]::FromFile((Join-Path $srcDir $srcName))

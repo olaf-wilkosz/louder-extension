@@ -140,6 +140,12 @@ const lineOf = (text, index) => text.slice(0, index).split("\n").length;
   }
 }
 
+// the site's privacy page lives at the site root; nothing may still link to its old /landing/ address
+for (const file of ["README.md", "SECURITY.md", join("store", "listing-copy.md")]) {
+  check(!read(file).includes("louder-extension/landing/"), `${file} still links to the old /landing/ address of the site`);
+}
+check(exists("landing", "fonts", "OFL.txt") && read("THIRD_PARTY_NOTICES.md").includes("DM Sans"), "the self-hosted website font needs landing/fonts/OFL.txt and a credit in THIRD_PARTY_NOTICES.md");
+
 // licensing and package metadata
 check(pkg.license === "MIT" && /^MIT License/.test(read("LICENSE")), "package.json license and LICENSE must both be MIT");
 check(pkg.private === true, "package.json must stay private (this repo is not published to npm)");
