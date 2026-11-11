@@ -1,5 +1,7 @@
 import { Readability } from "@mozilla/readability";
 import { TextIndex, WordCursor } from "./text-index.ts";
+import { splitSentences } from "./sentences.ts";
+import { detectLanguageFromText } from "./language.ts";
 
 /* ═══════════════════════════════════════════════════════════════════
    DESIGN TOKENS
@@ -504,16 +506,8 @@ speechSynthesis.addEventListener("voiceschanged", () => {
 
 /** Detect language from text content. Falls back to page/browser lang. */
 function detectTextLang(text: string): string {
-  const sample = text.slice(0, 1500);
-  // Polish diacritics — scale threshold with text length so short selections
-  // (e.g. "Cześć," with 3 diacritics) are caught without requiring 8+
-  const plDiacritics = (sample.match(/[ąęóśżźćńłĄĘÓŚŻŹĆŃŁ]/g) ?? []).length;
-  const plThreshold = sample.length < 200 ? 3 : 8;
-  if (plDiacritics >= plThreshold) return "pl";
-  // English stopwords — unique to English; 2+ in a sentence is reliable
-  const enWords = (sample.toLowerCase()
-    .match(/\b(the|and|of|to|is|it|in|that|you|for|are|was|this|with|have|from|they|be|or|but|not|we|can|an|at|by|as|do|go|if|no|so)\b/g) ?? []).length;
-  if (enWords >= 2) return "en";
+  const fromText = detectLanguageFromText(text);
+  if (fromText) return fromText;
   // Last resort: page declared lang, then browser lang
   const declared = document.documentElement.lang;
   return declared ? declared.split("-")[0].toLowerCase() : navigator.language.split("-")[0].toLowerCase();
@@ -719,44 +713,6 @@ function bodyTextFromNodes(): string {
     }
   }
   return parts.join("").replace(/\n{3,}/g, "\n\n").trim();
-}
-
-const MAX_WORDS_PER_CHUNK = 60;
-
-function splitSentences(text: string): string[] {
-  // Step 0: split on double+ newlines (block section / paragraph boundaries)
-  // first, so content from different email sections / paragraphs never gets
-  // merged into one utterance. Single \n (e.g. from <br>) stays within a chunk.
-  const sections = text.split(/\n{2,}/).map(s => s.trim()).filter(s => s.length > 0);
-
-  const result: string[] = [];
-  for (const section of sections) {
-    // Primary split on sentence-ending punctuation within each section
-    const primary = section.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(s => s.length > 0);
-
-    // Secondary split: break chunks longer than MAX_WORDS_PER_CHUNK at
-    // commas/semicolons/colons/newlines so a block of numbers or code
-    // doesn't create a single utterance lasting minutes.
-    for (const chunk of primary) {
-      if (chunk.split(/\s+/).length <= MAX_WORDS_PER_CHUNK) {
-        result.push(chunk);
-        continue;
-      }
-      const sub = chunk.split(/(?<=[,;:\n])\s+/).map(s => s.trim()).filter(s => s.length > 0);
-      let current = "";
-      for (const piece of sub) {
-        const candidate = current ? `${current} ${piece}` : piece;
-        if (candidate.split(/\s+/).length > MAX_WORDS_PER_CHUNK && current) {
-          result.push(current);
-          current = piece;
-        } else {
-          current = candidate;
-        }
-      }
-      if (current) result.push(current);
-    }
-  }
-  return result;
 }
 
 // ── Text-node cache for CSS Highlight API ─────────────────────────────────
