@@ -35,10 +35,17 @@ Matches your OS automatically, or set it manually.
 🔄 Cross-tab aware
 Start reading in one tab and any other tab that was mid-sentence pauses automatically — no overlapping audio.
 
+⌨️ Keyboard shortcut
+Alt+Shift+L shows or hides the Louder panel (you can change it in your browser's extension shortcuts).
+
 PRIVACY
 
 Louder reads the page you're already looking at. It doesn't send your browsing data anywhere — all text-to-speech happens locally via your browser's built-in Web Speech API.
 ```
+
+## Supported browsers
+
+Chrome, Edge and Brave 112+ (Chrome Web Store / Edge Add-ons); Firefox and Zen 140+ (Firefox Add-ons).
 
 ## Category
 

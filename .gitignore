@@ -13,3 +13,7 @@ dist/
 
 # store packages built locally
 *.zip
+
+# build outputs
+dist-firefox/
+release/

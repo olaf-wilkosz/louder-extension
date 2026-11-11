@@ -2,6 +2,7 @@
   "name": "louder-extension",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "description": "Louder: a distraction-free text-to-speech reader for the browser with live word and sentence highlighting (Manifest V3, TypeScript + esbuild).",
   "author": "Olaf Wilkosz",
   "license": "MIT",
@@ -22,9 +23,11 @@
     "accessibility"
   ],
   "scripts": {
-    "build": "node build.js",
+    "build": "node scripts/build.mjs chrome",
+    "build:firefox": "node scripts/build.mjs firefox",
+    "package": "node scripts/build.mjs all --zip",
     "typecheck": "tsc --noEmit",
-    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test test/*.test.mjs",
+    "test": "node --test test/*.test.mjs",
     "check": "node scripts/check-release.mjs"
   },
   "engines": {
@@ -35,6 +38,7 @@
     "@resvg/resvg-js": "^2.6.2",
     "@types/chrome": "^0.1.40",
     "esbuild": "^0.28.0",
+    "fflate": "^0.8.3",
     "jsdom": "^31.0.0",
     "typescript": "^6.0.3"
   }

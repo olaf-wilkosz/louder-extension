@@ -17,6 +17,13 @@
     "48":  "icons/icon48.png",
     "128": "icons/icon128.png"
   },
+  "minimum_chrome_version": "112",
+  "commands": {
+    "_execute_action": {
+      "suggested_key": { "default": "Alt+Shift+L" },
+      "description": "Show or hide the Louder panel"
+    }
+  },
   "permissions": ["storage", "contextMenus", "activeTab", "scripting"],
   "host_permissions": ["<all_urls>"],
   "content_scripts": [

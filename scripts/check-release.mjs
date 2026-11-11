@@ -9,6 +9,8 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { basename, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { CHROME_MIN_VERSION, FIREFOX_MIN_VERSION, GECKO_ID } from "./build-config.mjs";
+import { manifestFor } from "./manifest-targets.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const read = (...parts) => readFileSync(join(ROOT, ...parts), "utf8");
@@ -50,6 +52,28 @@ check(manifest.description.length <= 132, `description is ${manifest.description
   check(listing.includes(manifest.description), "store/listing-copy.md does not contain the manifest description verbatim");
   const stated = listing.match(/\((\d+) characters\)/);
   if (stated) check(Number(stated[1]) === manifest.description.length, `store/listing-copy.md says the summary is ${stated[1]} characters, it is ${manifest.description.length}`);
+}
+
+// supported browsers: one number, used by the bundle target, the manifest, the README and the listing
+check(manifest.minimum_chrome_version === String(CHROME_MIN_VERSION), `manifest minimum_chrome_version is ${manifest.minimum_chrome_version}, scripts/build-config.mjs says ${CHROME_MIN_VERSION}`);
+{
+  const chrome = `${CHROME_MIN_VERSION}+`;
+  const firefox = `${parseInt(FIREFOX_MIN_VERSION, 10)}+`;
+  for (const file of ["README.md", join("store", "listing-copy.md")]) {
+    const text = read(file);
+    check(text.includes(chrome), `${file} does not state the minimum Chrome version (${chrome})`);
+    check(text.includes(firefox), `${file} does not state the minimum Firefox version (${firefox})`);
+  }
+}
+
+// the Firefox variant: event page instead of a service worker, add-on id, nothing collected
+{
+  const firefox = manifestFor(manifest, "firefox");
+  check(!firefox.background?.service_worker && sorted(firefox.background?.scripts) === sorted([manifest.background?.service_worker]), "Firefox manifest must run the background script as an event page (background.scripts)");
+  check(firefox.browser_specific_settings?.gecko?.id === GECKO_ID, "Firefox manifest has no add-on id");
+  check(firefox.browser_specific_settings?.gecko?.strict_min_version === FIREFOX_MIN_VERSION, "Firefox manifest strict_min_version differs from scripts/build-config.mjs");
+  check(sorted(firefox.browser_specific_settings?.gecko?.data_collection_permissions?.required) === sorted(["none"]), 'Firefox manifest must declare data_collection_permissions.required = ["none"]');
+  check(sorted(firefox.permissions) === sorted(manifest.permissions) && sorted(firefox.host_permissions) === sorted(manifest.host_permissions), "Firefox manifest must request exactly the same permissions as the Chrome one");
 }
 
 // permissions
