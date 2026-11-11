@@ -1,0 +1,41 @@
+name: Release
+
+# Push a tag like v1.0.0 to publish a GitHub Release with both store zips attached.
+# Before tagging: bump the version in manifest.json AND package.json, and replace
+# "(unreleased)" in that version's CHANGELOG.md section with the release date.
+# The checks below refuse the tag otherwise.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # create the release and upload the zips
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - name: Release checks (the tag must equal the manifest version; the CHANGELOG section must be dated)
+        env:
+          TAG: ${{ github.ref_name }}
+        run: node scripts/check-release.mjs "$TAG"
+      - name: Build both packages and the store zips
+        run: npm run package
+      - name: Release notes from the CHANGELOG
+        run: node scripts/release-notes.mjs > release-notes.md
+      - name: Publish the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release create "$TAG" dist/*.zip --verify-tag --title "Louder $TAG" --notes-file release-notes.md
