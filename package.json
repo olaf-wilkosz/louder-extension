@@ -24,6 +24,8 @@
   ],
   "scripts": {
     "build": "node scripts/build.mjs chrome",
+    "dev": "node scripts/build.mjs chrome --watch",
+    "dev:firefox": "node scripts/build.mjs firefox --watch",
     "build:firefox": "node scripts/build.mjs firefox",
     "package": "node scripts/build.mjs all --zip",
     "typecheck": "tsc --noEmit",

@@ -13,8 +13,11 @@ export const FIREFOX_MIN_VERSION = "140.0";
 /** Firefox add-on id (AMO needs a stable one; it is an id, not a real address). */
 export const GECKO_ID = "louder@olaf-wilkosz.github.io";
 
-/** File-name prefix of the packages: release/<slug>-<version>-<target>.zip */
+/** File-name prefix of the packages: dist/<slug>-<version>-<target>.zip */
 export const SLUG = "louder";
 
-/** Package name -> the directory it is built into (the Chrome build keeps the historic `dist`). */
-export const OUT_DIRS = { chrome: "dist", firefox: "dist-firefox" };
+/** Where each package is built. Same layout as the sibling project: everything lives under dist/. */
+export const OUT_DIRS = { chrome: "dist/chrome", firefox: "dist/firefox" };
+
+/** The store zips go next to the unpacked builds. */
+export const ZIP_DIR = "dist";

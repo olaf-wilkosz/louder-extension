@@ -42,24 +42,24 @@ Works in Chrome, Edge and Brave 112+, and in Firefox and Zen 140+ (the Firefox b
    ```
 2. Open `chrome://extensions` in Chrome (or the equivalent in any Chromium-based browser, e.g. `brave://extensions`)
 3. Enable **Developer mode** (top right)
-4. Click **Load unpacked** and select the `dist/` folder
+4. Click **Load unpacked** and select the `dist/chrome/` folder
 
-**Firefox / Zen:** run `npm run build:firefox` (writes `dist-firefox/`, the same code with a Firefox manifest), open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on** and pick `dist-firefox/manifest.json`. A temporary add-on is gone after a browser restart until the Firefox Add-ons listing is live.
+**Firefox / Zen:** run `npm run build:firefox` (writes `dist/firefox/`, the same code with a Firefox manifest), open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on** and pick `dist/firefox/manifest.json`. A temporary add-on is gone after a browser restart until the Firefox Add-ons listing is live.
 
 ## Development
 
 ```bash
-npm run build          # Chrome / Edge / Brave build -> dist/ (load this folder unpacked)
-npm run build:firefox  # Firefox / Zen build -> dist-firefox/
-npm run package        # both builds + the store zips -> release/louder-<version>-<chrome|firefox>.zip
+npm run build          # Chrome / Edge / Brave build -> dist/chrome/ (load this folder unpacked)
+npm run build:firefox  # Firefox / Zen build -> dist/firefox/
+npm run package        # both builds + the store zips -> dist/louder-<version>-<chrome|firefox>.zip
 npm run typecheck      # TypeScript check, no emit
 npm test           # unit tests (node:test) for the text-matching and extraction logic (pure + jsdom); needs Node 22.22.2+
 npm run check      # release checks: versions, store limits, permissions, bundled licenses, forbidden patterns
 ```
 
-The Chrome build stays in `dist/` on purpose: an unpacked extension's id comes from its folder path, and with it the settings stored in `chrome.storage`, so moving the output would reset them. The browser version numbers above live in `scripts/build-config.mjs` (one place for the bundle target, the manifest, this README and the store listing; the release checks keep them in sync).
+`npm run dev` (and `npm run dev:firefox`) rebuild the bundles on every change in `src/`; reload the extension in the browser after a change. The browser version numbers above live in `scripts/build-config.mjs` (one place for the bundle target, the manifest, this README and the store listing; the release checks keep them in sync).
 
-CI (`.github/workflows/ci.yml`) runs typecheck, tests, the release checks and the build on every push and pull request, and attaches the built extension (`dist/`) and both store zips to the run as artifacts, so a PR can be tried before it is merged. Release checks guard what the stores and the privacy policy depend on: the permission list is frozen (changing it is a deliberate edit of `scripts/check-release.mjs`, the privacy page and the listing), nothing in `src/` may use network APIs, `eval` or inject HTML except from static icon constants, and every bundled third-party package must be credited in `THIRD_PARTY_NOTICES.md`.
+CI (`.github/workflows/ci.yml`) runs typecheck, tests, the release checks and the build on every push and pull request, and attaches the built Chrome extension (`dist/chrome/`) and both store zips to the run as artifacts, so a PR can be tried before it is merged. Release checks guard what the stores and the privacy policy depend on: the permission list is frozen (changing it is a deliberate edit of `scripts/check-release.mjs`, the privacy page and the listing), nothing in `src/` may use network APIs, `eval` or inject HTML except from static icon constants, and every bundled third-party package must be credited in `THIRD_PARTY_NOTICES.md`.
 
 After any change, rebuild and reload the extension from `chrome://extensions` (or refresh the specific tab you're testing on, since content scripts don't hot-reload).
 
