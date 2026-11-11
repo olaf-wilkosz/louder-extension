@@ -33,6 +33,8 @@ jobs:
         run: npm test
       - name: Release checks (versions, store limits, permissions, bundled licenses, forbidden patterns)
         run: npm run check
+      - name: Build the website (fails on a missing file or anything loaded from another host)
+        run: npm run site
       - name: Build both packages (Chrome and Firefox) and the store zips
         run: npm run package
       # The built extension of this commit: download it from the run to try a PR before merging.

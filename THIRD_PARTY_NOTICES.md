@@ -30,3 +30,10 @@ limitations under the License.
 
 No other third-party code or fonts are bundled: the extension uses the system font stack and the
 browser's built-in Web Speech API.
+
+## The website (not part of the extension package)
+
+The website in `landing/` self-hosts the **DM Sans** variable font (latin and latin-ext subsets,
+from the `@fontsource-variable/dm-sans` 5.3.0 package), licensed under the SIL Open Font License,
+Version 1.1. The copyright line and license text are in `landing/fonts/OFL.txt` and are published
+with the site at `fonts/OFL.txt`.

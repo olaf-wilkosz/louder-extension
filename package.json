@@ -30,7 +30,9 @@
     "package": "node scripts/build.mjs all --zip",
     "typecheck": "tsc --noEmit",
     "test": "node --test test/*.test.mjs",
-    "check": "node scripts/check-release.mjs"
+    "check": "node scripts/check-release.mjs",
+    "site": "node scripts/build-site.mjs",
+    "site:serve": "node scripts/serve.mjs"
   },
   "engines": {
     "node": ">=22.22.2"

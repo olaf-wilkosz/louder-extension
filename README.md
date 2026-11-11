@@ -23,11 +23,11 @@ Distraction-free text-to-speech reader for the browser. Select any text, hit pla
 
 ## Screenshots
 
-![Louder's widget reading a Wikipedia article aloud, with the word 'artificial' highlighted live](landing/hero.png)
+![Louder's widget reading a Wikipedia article aloud, with the word 'artificial' highlighted live](landing/img/hero.png)
 
 | Selection trigger | Settings | Voices |
 |---|---|---|
-| ![Selection trigger expanded, showing the Read it louder pill](landing/gallery-trigger.png) | ![Settings panel with theme and highlight color presets](landing/gallery-settings.png) | ![Voice picker listing available system voices](landing/gallery-voices.png) |
+| ![Selection trigger expanded, showing the Read it louder pill](landing/img/gallery-trigger.png) | ![Settings panel with theme and highlight color presets](landing/img/gallery-settings.png) | ![Voice picker listing available system voices](landing/img/gallery-voices.png) |
 | Select text anywhere — the trigger follows your cursor | Theme and highlight color, your choice | Every voice your browser offers |
 
 ## Installation
@@ -74,7 +74,7 @@ The codebase is TypeScript + esbuild, no frameworks. The widget lives entirely i
 
 ## Privacy
 
-Louder stores your preferences locally and never transmits any data. Report vulnerabilities as described in [SECURITY.md](SECURITY.md). See the [Privacy Policy](https://olaf-wilkosz.github.io/louder-extension/landing/privacy.html) for details.
+Louder stores your preferences locally and never transmits any data. Report vulnerabilities as described in [SECURITY.md](SECURITY.md). See the [Privacy Policy](https://olaf-wilkosz.github.io/louder-extension/privacy.html) for details.
 
 ## License
 

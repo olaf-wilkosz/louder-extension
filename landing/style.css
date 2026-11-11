@@ -1,0 +1,358 @@
+/* Louder website and privacy policy. One stylesheet for both pages.
+   DM Sans is self-hosted (SIL OFL 1.1, see fonts/OFL.txt): no request leaves for a font CDN. */
+
+/* latin-ext carries the Polish letters */
+@font-face {
+  font-family: 'DM Sans Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 1000;
+  src: url(fonts/dm-sans-latin-ext-wght-normal.woff2) format('woff2-variations');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+@font-face {
+  font-family: 'DM Sans Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 1000;
+  src: url(fonts/dm-sans-latin-wght-normal.woff2) format('woff2-variations');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+
+:root {
+  --accent: #46edd5;
+  --accent-dim: #007d6f;
+  --bg: #0a1614;
+  --bg-2: #0d1a18;
+  --card: #14231f;
+  --card-border: #1f3530;
+  --text: #eaf5f3;
+  --subtext: #8fa8a3;
+  --radius: 16px;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background:
+    radial-gradient(1100px 620px at 12% -8%, rgba(70,237,213,0.13), transparent 60%),
+    radial-gradient(900px 520px at 100% 8%, rgba(0,125,111,0.16), transparent 55%),
+    radial-gradient(800px 500px at 50% 100%, rgba(70,237,213,0.06), transparent 60%),
+    linear-gradient(180deg, #0a1614 0%, #0d1a18 45%, #09140f 100%);
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: 'DM Sans Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.5;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.wrap { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+header {
+  position: sticky; top: 0; z-index: 50;
+  padding: 14px 0;
+}
+/* The pill's background lives on this inner element, not on .wrap itself —
+   .wrap always spans the full viewport width once the screen is narrower
+   than its max-width (nothing left to auto-center), so a background/
+   border-radius applied directly to .wrap would touch both screen edges
+   with no inset, unlike every other section's card content (which sits
+   nested *inside* .wrap and inherits its padding as a real margin). */
+.header-pill {
+  display: flex; align-items: center; justify-content: space-between; height: 56px;
+  padding: 0 22px;
+  border-radius: 999px; border: 1px solid transparent;
+  background: transparent; backdrop-filter: none;
+  box-shadow: none;
+  transition: background .35s ease, backdrop-filter .35s ease,
+              border-color .35s ease, box-shadow .35s ease;
+}
+header.scrolled .header-pill {
+  background: rgba(20,35,31,0.7);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-color: rgba(70,237,213,0.14);
+  box-shadow: 0 10px 34px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,0,0,0.2);
+}
+.brand {
+  display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 20px;
+  color: var(--text); text-decoration: none;
+}
+.brand:hover { text-decoration: none; opacity: 0.85; }
+.brand img { width: 32px; height: 32px; }
+nav { display: flex; gap: 28px; align-items: center; }
+nav a { color: var(--subtext); font-weight: 500; font-size: 15px; }
+nav a:hover { color: var(--text); text-decoration: none; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--accent); color: #06201c;
+  font-weight: 700; font-size: 15px;
+  padding: 11px 20px; border-radius: 999px;
+  transition: transform .15s, box-shadow .15s;
+  box-shadow: 0 4px 20px rgba(70,237,213,0.25);
+}
+.btn:hover { transform: translateY(-1px); box-shadow: 0 6px 26px rgba(70,237,213,0.4); text-decoration: none; }
+.btn-ghost {
+  background: transparent; color: var(--text);
+  border: 1px solid var(--card-border); box-shadow: none;
+}
+.btn-ghost:hover { border-color: var(--accent); box-shadow: none; }
+
+.hero { padding: 88px 0 64px; text-align: center; }
+.hero h1 {
+  font-size: clamp(36px, 6vw, 56px);
+  font-weight: 800; line-height: 1.1; margin: 0 0 20px;
+  letter-spacing: -0.02em;
+}
+.hero h1 span { color: var(--accent); }
+.hero p { font-size: 19px; color: var(--subtext); max-width: 560px; margin: 0 auto 36px; }
+.hero-ctas { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+
+.hero-shot {
+  margin-top: 56px; border-radius: var(--radius); overflow: hidden;
+  border: 1px solid var(--card-border);
+  box-shadow: 0 30px 80px -20px rgba(0,0,0,0.6), 0 0 0 1px rgba(70,237,213,0.06);
+}
+.hero-shot img { display: block; width: 100%; height: auto; }
+
+.demo-card {
+  background: var(--card); border: 1px solid var(--card-border);
+  border-radius: var(--radius); padding: 32px;
+  display: flex; gap: 24px; align-items: flex-start;
+}
+/* Matches the real extension's .play-btn exactly: solid teal circle,
+   white icon, glow shadow — same in both play and pause state, only
+   the icon glyph swaps. Sized up slightly from the extension's 36px
+   since this stands alone in a card rather than inside a compact bar. */
+.demo-play {
+  flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%;
+  background: var(--accent); color: #fff; border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 18px rgba(70,237,213,0.4);
+  transition: filter .15s, transform .12s;
+}
+.demo-play:hover  { filter: brightness(1.12); }
+.demo-play:active { transform: scale(0.92); }
+.demo-body { flex: 1; min-width: 0; }
+.demo-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px 20px; flex-wrap: wrap; margin-bottom: 12px;
+}
+.demo-status {
+  color: var(--subtext); font-size: 12.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .06em;
+}
+.demo-controls { display: flex; align-items: center; gap: 6px; }
+
+/* Matches the extension's own .icon-btn: transparent circle, tints on
+   hover/active — same treatment as the Settings/Voice/Speed buttons in
+   the real widget bar. */
+.demo-popover-wrap { position: relative; }
+.demo-icon-btn {
+  width: 34px; height: 34px; border-radius: 50%; border: none;
+  background: transparent; color: var(--subtext); font-family: inherit;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: background .14s, color .14s;
+}
+.demo-icon-btn:hover { background: rgba(255,255,255,0.07); color: var(--text); }
+.demo-icon-btn.active { background: rgba(70,237,213,0.14); color: var(--accent); }
+.demo-icon-btn-badge { font-size: 11px; font-weight: 700; }
+
+/* Floating panel, styled like the extension's Settings/Voice/Speed popovers */
+/* Anchored by the right edge, not the left — these buttons sit at the
+   right end of the toolbar, so a left-anchored panel pushed its width
+   straight past the card/viewport edge. */
+.demo-panel {
+  position: absolute; top: calc(100% + 10px); right: 0; z-index: 20;
+  background: #1a2d2a; border: 1px solid rgba(70,237,213,0.18);
+  border-radius: 12px; box-shadow: 0 14px 36px rgba(0,0,0,0.5);
+  padding: 14px; min-width: 220px;
+  max-width: calc(100vw - 48px);
+}
+.demo-panel[hidden] { display: none; }
+.demo-panel-title {
+  font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--subtext); margin-bottom: 10px;
+}
+.demo-panel-list {
+  display: flex; flex-direction: column; gap: 2px;
+  max-height: 260px; overflow-y: auto; margin: 0 -6px; padding: 0 6px;
+}
+/* Same custom scrollbar treatment as the extension's own .voice-list */
+.demo-panel-list { scrollbar-width: thin; scrollbar-color: var(--subtext) transparent; }
+.demo-panel-list::-webkit-scrollbar { width: 4px; }
+.demo-panel-list::-webkit-scrollbar-track { background: transparent; }
+.demo-panel-list::-webkit-scrollbar-thumb { background: var(--subtext); border-radius: 2px; }
+.demo-panel-list::-webkit-scrollbar-thumb:hover { background: var(--text); }
+
+.demo-voice-row {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; text-align: left; padding: 7px 10px; border-radius: 10px;
+  border: none; background: transparent; color: var(--text);
+  cursor: pointer; font-family: inherit; font-size: 13px;
+}
+.demo-voice-row:hover { background: rgba(255,255,255,0.06); }
+.demo-voice-row.selected { background: rgba(70,237,213,0.14); color: var(--accent); }
+.demo-voice-avatar {
+  width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(255,255,255,0.06); color: var(--subtext);
+  display: flex; align-items: center; justify-content: center;
+}
+.demo-voice-row.selected .demo-voice-avatar { background: rgba(70,237,213,0.18); color: var(--accent); }
+.demo-voice-row-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.demo-voice-row-text span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.demo-voice-row small { color: var(--subtext); font-size: 11px; }
+.demo-voice-row.selected small { color: inherit; opacity: 0.75; }
+.demo-voice-empty { padding: 6px 10px; font-size: 12.5px; color: var(--subtext); line-height: 1.5; }
+
+/* Speed panel — mirrors the extension's own: value+wpm header, a vertical
+   stepped track with +/- buttons, and a column of the discrete speed stops. */
+.demo-panel-speed { min-width: 0; padding: 14px 16px; }
+.demo-speed-hdr { text-align: center; margin-bottom: 14px; }
+.demo-speed-hdr-val { font-size: 20px; font-weight: 700; color: var(--accent); line-height: 1.2; }
+.demo-speed-hdr-wpm { font-size: 11px; color: var(--subtext); margin-top: 2px; }
+.demo-speed-body { display: flex; align-items: stretch; gap: 14px; }
+.demo-speed-track-col {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+.demo-step-btn {
+  width: 22px; height: 22px; border-radius: 50%; border: none;
+  background: rgba(255,255,255,0.07); color: var(--text);
+  font-size: 14px; line-height: 1; cursor: pointer; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .12s;
+}
+.demo-step-btn:hover { background: rgba(255,255,255,0.14); }
+/* Vertical range input — standard writing-mode approach (Chrome/Edge/Firefox).
+   Indexes into SPEED_STOPS_ASC (slowest→fastest) so a higher input value —
+   which writing-mode + direction:rtl renders higher up — means faster,
+   matching the extension's own speed panel (faster = higher on the slider). */
+#demoSpeedPanel input[type="range"] {
+  writing-mode: vertical-lr; direction: rtl;
+  width: 6px; height: 150px; accent-color: var(--accent);
+}
+.demo-speed-labels {
+  display: flex; flex-direction: column; justify-content: space-between;
+  align-items: flex-start; padding: 2px 0;
+}
+.demo-speed-label {
+  border: none; background: none; color: var(--subtext); cursor: pointer;
+  font-family: inherit; font-size: 11.5px; padding: 1px 4px; border-radius: 4px;
+  transition: color .12s, background .12s;
+}
+.demo-speed-label:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+.demo-speed-label.active { color: var(--accent); font-weight: 700; }
+
+.demo-text {
+  font-size: 19px; line-height: 1.75; margin: 0;
+  border-radius: 8px; padding: 4px 6px; margin: -4px -6px;
+}
+.demo-text[contenteditable="true"] { cursor: text; }
+.demo-text[contenteditable="true"]:focus {
+  outline: none; background: rgba(255,255,255,0.02);
+  box-shadow: 0 0 0 2px rgba(70,237,213,0.25);
+}
+.demo-text[contenteditable="false"] { cursor: default; }
+.demo-hint { display: block; margin-top: 10px; font-size: 12.5px; color: var(--subtext); }
+.demo-sentence { border-radius: 5px; transition: background .2s; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.demo-sentence.active { background: rgba(70,237,213,0.09); }
+.demo-word { border-radius: 3px; transition: background .1s, color .1s; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.demo-word.active { background: var(--accent); color: #06201c; }
+@media (max-width: 640px) {
+  .demo-card { flex-direction: column; align-items: center; text-align: center; }
+  .demo-toolbar { justify-content: center; text-align: left; }
+}
+
+section { padding: 64px 0; scroll-margin-top: 90px; }
+.section-head { text-align: center; margin-bottom: 44px; }
+.section-head h2 { font-size: clamp(26px, 4vw, 34px); font-weight: 800; margin: 0 0 10px; letter-spacing: -0.01em; }
+.section-head p { color: var(--subtext); font-size: 16px; margin: 0; }
+
+.features {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+@media (max-width: 760px) { .features { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px) { .features { grid-template-columns: 1fr; } }
+.feature {
+  background: var(--card); border: 1px solid var(--card-border);
+  border-radius: var(--radius); padding: 24px;
+}
+.feature .icon { font-size: 26px; margin-bottom: 12px; display: block; }
+.feature h3 { margin: 0 0 8px; font-size: 17px; font-weight: 700; }
+.feature p { margin: 0; color: var(--subtext); font-size: 14.5px; }
+
+.gallery {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+}
+.gallery figure { margin: 0; }
+.gallery img {
+  width: 100%; height: 220px; object-fit: cover; display: block;
+  border-radius: 12px; border: 1px solid var(--card-border);
+}
+.gallery figcaption { margin-top: 10px; font-size: 14px; color: var(--subtext); text-align: center; }
+
+footer {
+  border-top: 1px solid var(--card-border);
+  padding: 40px 0; text-align: center;
+  color: var(--subtext); font-size: 14px;
+}
+footer .brand { justify-content: center; margin-bottom: 12px; }
+footer .links { display: flex; gap: 20px; justify-content: center; margin-top: 14px; }
+
+@media (max-width: 640px) {
+  nav a:not(.btn) { display: none; }
+}
+
+/* Skip link: first thing a keyboard user tabs to */
+.skip {
+  position: absolute; left: 16px; top: -64px; z-index: 100;
+  background: var(--accent); color: #06201c; font-weight: 700;
+  padding: 10px 16px; border-radius: 10px; text-decoration: none;
+}
+.skip:focus { top: 16px; }
+
+/* Privacy policy page */
+main.page { padding: 64px 0 80px; }
+.doc-hdr { margin-bottom: 40px; }
+.doc-hdr h1 { font-size: clamp(30px, 5vw, 42px); font-weight: 800; margin: 0 0 10px; letter-spacing: -0.01em; }
+.doc-hdr p { color: var(--subtext); font-size: 15px; margin: 0; }
+
+.doc {
+  background: var(--card); border: 1px solid var(--card-border);
+  border-radius: var(--radius); padding: 40px;
+}
+.doc h2 { font-size: 19px; font-weight: 700; margin: 32px 0 12px; }
+.doc h2:first-child { margin-top: 0; }
+.doc p { color: var(--text); font-size: 15px; line-height: 1.75; margin: 0 0 14px; }
+.doc ul { margin: 0 0 14px; padding-left: 22px; color: var(--text); font-size: 15px; line-height: 1.75; }
+.doc li { margin-bottom: 4px; }
+.doc strong { color: var(--accent); }
+
+/* Table has a wide first column (white-space:nowrap for the permission
+   names) — on narrow viewports it doesn't fit, so it scrolls within its
+   own container instead of forcing the whole page to overflow. */
+.table-scroll { overflow-x: auto; margin: 8px 0 14px; }
+.perm-table { width: 100%; min-width: 480px; border-collapse: collapse; font-size: 14px; }
+.perm-table th, .perm-table td {
+  text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--card-border);
+}
+.perm-table th { color: var(--subtext); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.perm-table td:first-child { font-family: 'SFMono-Regular', Consolas, monospace; color: var(--accent); white-space: nowrap; }
+
+@media (max-width: 640px) {
+  .doc { padding: 24px; }
+}
+
+/* Respect "reduce motion": no transitions or animations, no smooth scrolling */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}

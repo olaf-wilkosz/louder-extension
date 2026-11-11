@@ -15,7 +15,7 @@ Louder runs on every page you open it on, so reports about how it could be abuse
 - anything that makes Louder send data anywhere: it is designed to make no network requests of its own;
 - script or HTML injection into a page through Louder.
 
-The design, the permissions it asks for and why are described on the [privacy page](https://olaf-wilkosz.github.io/louder-extension/landing/privacy.html).
+The design, the permissions it asks for and why are described on the [privacy page](https://olaf-wilkosz.github.io/louder-extension/privacy.html).
 
 ## Supported versions
 
