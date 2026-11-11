@@ -27,13 +27,14 @@
     "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test test/*.test.mjs"
   },
   "engines": {
-    "node": ">=22.18"
+    "node": ">=22.22.2"
   },
   "devDependencies": {
     "@mozilla/readability": "^0.6.0",
     "@resvg/resvg-js": "^2.6.2",
     "@types/chrome": "^0.1.40",
     "esbuild": "^0.28.0",
+    "jsdom": "^31.0.0",
     "typescript": "^6.0.3"
   }
 }
