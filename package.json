@@ -32,7 +32,8 @@
     "test": "node --test test/*.test.mjs",
     "check": "node scripts/check-release.mjs",
     "site": "node scripts/build-site.mjs",
-    "site:serve": "node scripts/serve.mjs"
+    "site:serve": "node scripts/serve.mjs",
+    "audit:site": "node scripts/audit-site.mjs"
   },
   "engines": {
     "node": ">=22.22.2"
@@ -41,9 +42,11 @@
     "@mozilla/readability": "^0.6.0",
     "@resvg/resvg-js": "^2.6.2",
     "@types/chrome": "^0.1.40",
+    "chrome-launcher": "1.2.3",
     "esbuild": "^0.28.0",
     "fflate": "^0.8.3",
     "jsdom": "^31.0.0",
+    "lighthouse": "13.6.0",
     "typescript": "^6.0.3"
   }
 }
