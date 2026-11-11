@@ -1,12 +1,22 @@
 // Accept keepalive ports from content scripts — no action needed, just prevent
 // "Could not establish connection" errors and keep the SW awake while connected.
-chrome.runtime.onConnect.addListener((_port) => { /* keepalive — no-op */ });
+chrome.runtime.onConnect.addListener((port) => {
+  // Keepalive — nothing to do on connect. When the page goes away (tab closed,
+  // or moved into the back/forward cache, which force-closes extension ports)
+  // Chrome sets lastError; reading it marks the disconnect as handled so it
+  // isn't logged as an "Unchecked runtime.lastError" on the extensions page.
+  port.onDisconnect.addListener(() => { void chrome.runtime.lastError; });
+});
 
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: "louder-selection",
-    title: "Read it louder!",
-    contexts: ["selection"],
+  // onInstalled also fires on extension reload/update, when the menu item may
+  // already exist — creating it again logs "duplicate id" as an unchecked
+  // lastError. Clear first so create() always starts from a clean slate.
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create(
+      { id: "louder-selection", title: "Read it louder!", contexts: ["selection"] },
+      () => { void chrome.runtime.lastError; },
+    );
   });
 });
 
