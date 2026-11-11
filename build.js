@@ -15,6 +15,9 @@ function copy(src, dest) {
 }
 
 copy("manifest.json", "manifest.json");
+// The bundled Readability (Apache-2.0) requires its notice to ship with the package.
+copy("LICENSE", "LICENSE");
+copy("THIRD_PARTY_NOTICES.md", "THIRD_PARTY_NOTICES.md");
 
 const iconsOut = path.join(outDir, "icons");
 if (!fs.existsSync(iconsOut)) fs.mkdirSync(iconsOut, { recursive: true });

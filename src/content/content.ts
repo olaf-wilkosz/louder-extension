@@ -97,7 +97,7 @@ const SHADOW_CSS = `
   z-index: 2147483647;
   right: 80px;
   top: 240px;
-  font-family: 'DM Sans', system-ui, sans-serif;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   font-size: 13px;
   user-select: none;
   display: block;
@@ -1272,7 +1272,6 @@ class LouderWidget {
     this.shadow = this.host.attachShadow({ mode: "open" });
     document.documentElement.appendChild(this.host);
 
-    this.injectFont();
     this.loadSettings().then(() => {
       this.applyThemeVars();
       this.buildDOM();
@@ -1290,15 +1289,6 @@ class LouderWidget {
     window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
       if (this.themeChoice === "system") this.applyThemeVars();
     });
-  }
-
-  // ── Font ─────────────────────────────────────────────────────────
-  private injectFont(): void {
-    if (document.getElementById("louder-font")) return;
-    const link = document.createElement("link");
-    link.id = "louder-font"; link.rel = "stylesheet";
-    link.href = "https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap";
-    document.head.appendChild(link);
   }
 
   // ── Theme ─────────────────────────────────────────────────────────
@@ -2334,7 +2324,7 @@ const tShadow = tRootHost.attachShadow({ mode: "closed" });
     box-sizing: border-box !important;
     box-shadow: 0 2px 10px rgba(0,125,111,0.45);
     cursor: pointer; user-select: none; white-space: nowrap;
-    font-family: 'DM Sans', system-ui, sans-serif;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     transition: gap .22s cubic-bezier(.4,0,.2,1), background .18s, box-shadow .18s, opacity .18s;
     opacity: 0; pointer-events: none;
   }
