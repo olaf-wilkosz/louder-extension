@@ -56,6 +56,8 @@ npm run package        # both builds + the store zips -> dist/louder-<version>-<
 npm run typecheck      # TypeScript check, no emit
 npm test           # unit tests (node:test) for the text-matching and extraction logic (pure + jsdom); needs Node 22.22.2+
 npm run check      # release checks: versions, store limits, permissions, bundled licenses, forbidden patterns
+npm run site       # assemble the website into dist/site (npm run site:serve to preview at localhost:8123)
+npm run audit:site # Lighthouse on the built site: a11y / best practices / SEO 100, performance >= 90 (needs Chrome)
 ```
 
 `npm run dev` (and `npm run dev:firefox`) rebuild the bundles on every change in `src/`; reload the extension in the browser after a change. The browser version numbers above live in `scripts/build-config.mjs` (one place for the bundle target, the manifest, this README and the store listing; the release checks keep them in sync).
