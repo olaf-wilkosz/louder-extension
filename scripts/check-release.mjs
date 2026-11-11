@@ -42,6 +42,19 @@ check(manifest.version === pkg.version, `package.json version ${pkg.version} != 
 check(/^\d+\.\d+\.\d+$/.test(manifest.version), `manifest version "${manifest.version}" is not x.y.z`);
 if (tag) check(tag === `v${manifest.version}`, `tag ${tag} does not match manifest version v${manifest.version}`);
 
+// the CHANGELOG has a section for this version; a tagged release needs it dated, not "(unreleased)"
+{
+  const heading = read("CHANGELOG.md").split("\n").find((line) => line.startsWith(`## ${manifest.version}`));
+  check(Boolean(heading), `CHANGELOG.md has no "## ${manifest.version}" section`);
+  if (tag && heading) check(!/unreleased/i.test(heading), `CHANGELOG.md section "${heading}" still says unreleased: date it before tagging`);
+}
+
+// files the project promises to have
+for (const file of ["LICENSE", "CHANGELOG.md", "SECURITY.md", ".github/ISSUE_TEMPLATE/config.yml"]) {
+  check(exists(...file.split("/")), `${file} is missing`);
+}
+check(read("SECURITY.md").includes("olaf-wilkosz/louder-extension/security/advisories/new"), "SECURITY.md must point at the private vulnerability reporting page");
+
 // store limits (Chrome Web Store: name 75, summary 132)
 check(manifest.name.length <= 75, `name is ${manifest.name.length} chars (max 75)`);
 check(manifest.description.length <= 132, `description is ${manifest.description.length} chars (max 132)`);

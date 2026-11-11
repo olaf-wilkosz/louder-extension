@@ -1,0 +1,29 @@
+name: Bug report
+description: Louder reads or highlights the wrong thing, or something does not work
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect, and what do you see (or hear) instead? A screenshot or a short recording helps.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Louder version and browser
+      description: The version is on the extensions page; the browser with its version.
+      placeholder: "1.0.0, Brave 1.80 on Windows 11"
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Where does it happen?
+      description: The site or kind of page (Gmail, a news article, a forum...), and a link if the page is public. Please do not paste private content.
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Selection or whole page? Which voice and speed? Did you scroll while it was reading?

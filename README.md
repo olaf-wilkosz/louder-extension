@@ -5,6 +5,7 @@
 Distraction-free text-to-speech reader for the browser. Select any text, hit play, and Louder reads it aloud — highlighting each sentence and word as it goes, so your eyes and ears stay in sync.
 
 [![CI](https://github.com/olaf-wilkosz/louder-extension/actions/workflows/ci.yml/badge.svg)](https://github.com/olaf-wilkosz/louder-extension/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/olaf-wilkosz/louder-extension?sort=semver)](https://github.com/olaf-wilkosz/louder-extension/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Manifest V3](https://img.shields.io/badge/manifest-v3-green)
 
@@ -65,9 +66,15 @@ After any change, rebuild and reload the extension from `chrome://extensions` (o
 
 The codebase is TypeScript + esbuild, no frameworks. The widget lives entirely in a Shadow DOM for CSS isolation; the selection trigger lives in its own closed Shadow DOM so its text never leaks into page-content extraction tools.
 
+### Releasing
+
+1. Bump the version in `manifest.json` **and** `package.json` (the checks fail if they differ) and replace `(unreleased)` in that version's [CHANGELOG.md](CHANGELOG.md) section with the date.
+2. `git tag vX.Y.Z && git push --tags`. The release workflow checks that the tag equals the manifest version and the CHANGELOG section is dated, runs typecheck and tests, builds the Chrome and Firefox packages and publishes a GitHub Release with both zips attached and the CHANGELOG section as the notes.
+3. Upload the zips to the stores.
+
 ## Privacy
 
-Louder stores your preferences locally and never transmits any data. See the [Privacy Policy](https://olaf-wilkosz.github.io/louder-extension/landing/privacy.html) for details.
+Louder stores your preferences locally and never transmits any data. Report vulnerabilities as described in [SECURITY.md](SECURITY.md). See the [Privacy Policy](https://olaf-wilkosz.github.io/louder-extension/landing/privacy.html) for details.
 
 ## License
 
