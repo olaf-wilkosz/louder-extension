@@ -18,7 +18,7 @@ const SITE_URL = "https://olaf-wilkosz.github.io/louder-extension";
 const EXTRA_FILES = [
   ["public/icons/icon32.png", "img/icon32.png"],
   ["public/icons/icon128.png", "img/icon128.png"],
-  ["store/promo-marquee-1400x560.png", "img/og.png"],
+  ["store/og-1200x630.png", "img/og.png"],
 ];
 
 // Empty the folder rather than deleting it: a preview server or shell may be sitting in it

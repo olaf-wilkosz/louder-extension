@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Louder store slide</title>
+<!-- One 1280x800 store screenshot: a caption and a browser window showing a picture rendered by
+     scripts/render-store.mjs (the real extension on the demo article). Chosen by ?n=1..5. -->
+<style>
+@font-face { font-family: "DM Sans"; font-weight: 100 1000; font-display: block; src: url("/landing/fonts/dm-sans-latin-wght-normal.woff2") format("woff2"); }
+:root { --accent: #46edd5; --text: #eaf5f3; --sub: #9db8b3; }
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 1280px; height: 800px; overflow: hidden; }
+body {
+  font-family: "DM Sans", system-ui, sans-serif; color: var(--text);
+  background: radial-gradient(900px 520px at 85% -10%, rgba(70,237,213,.20), transparent 60%), linear-gradient(180deg, #0d1f1c 0%, #08120f 100%);
+}
+.caption { position: absolute; left: 64px; top: 44px; right: 64px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; color: var(--accent); letter-spacing: -.01em; margin-bottom: 14px; }
+.brand img { width: 28px; height: 28px; }
+h1 { margin: 0; font-size: 46px; line-height: 1.08; letter-spacing: -.025em; font-weight: 800; }
+h1 em { font-style: normal; color: var(--accent); }
+.sub { margin: 10px 0 0; font-size: 21px; color: var(--sub); }
+.window {
+  position: absolute; left: 64px; right: 64px; top: 226px; bottom: -40px;
+  border-radius: 16px 16px 0 0; overflow: hidden; background: #fff;
+  box-shadow: 0 30px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.08);
+}
+.bar { height: 38px; display: flex; align-items: center; gap: 8px; padding: 0 16px; background: #e9ecec; border-bottom: 1px solid #d5dad9; }
+.bar i { width: 12px; height: 12px; border-radius: 50%; background: #c4cac9; }
+.bar .url { margin-left: 14px; flex: 0 1 460px; height: 22px; border-radius: 11px; background: #fff; color: #6c7775; font-size: 13px; line-height: 22px; padding: 0 14px; }
+.window img { display: block; width: 100%; height: auto; }
+</style>
+</head>
+<body>
+<div class="caption">
+  <div class="brand"><img src="/public/icons/icon128.png" alt="">Louder</div>
+  <h1 id="h"></h1>
+  <p class="sub" id="s"></p>
+</div>
+<div class="window">
+  <div class="bar"><i></i><i></i><i></i><span class="url">themarginnotes.example/reading-aloud</span></div>
+  <img id="shot" alt="">
+</div>
+<script>
+const SLIDES = {
+  1: ["playing", "Read along, <em>word by word</em>", "Louder highlights the sentence and the word as they are spoken."],
+  2: ["trigger", "Select text. <em>Hear it louder.</em>", "Two words or more, and a small pill follows your cursor."],
+  3: ["settings", "Make it <em>yours</em>", "Dark, light or system theme, and four highlight colors."],
+  4: ["voices", "Every voice <em>your browser offers</em>", "The language is detected for you; pin the voices you like."],
+  5: ["speed", "From a careful <em>0.25x to a 5x skim</em>", "Slow down to take it in, or speed up to get through it."],
+};
+const [scene, head, sub] = SLIDES[new URLSearchParams(location.search).get("n")];
+document.getElementById("h").innerHTML = head;
+document.getElementById("s").textContent = sub;
+const img = document.getElementById("shot");
+img.src = `/dist/render/${scene}.png`;
+</script>
+</body>
+</html>

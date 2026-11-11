@@ -146,6 +146,23 @@ for (const file of ["README.md", "SECURITY.md", join("store", "listing-copy.md")
 }
 check(exists("landing", "fonts", "OFL.txt") && read("THIRD_PARTY_NOTICES.md").includes("DM Sans"), "the self-hosted website font needs landing/fonts/OFL.txt and a credit in THIRD_PARTY_NOTICES.md");
 
+// store pictures: the stores reject wrong sizes and 32-bit (alpha) PNGs, so check what is committed
+{
+  const SIZES = {
+    "store/screenshots/01-playing-highlight.png": [1280, 800], "store/screenshots/02-selection-trigger.png": [1280, 800],
+    "store/screenshots/03-settings-panel.png": [1280, 800], "store/screenshots/04-voice-picker.png": [1280, 800],
+    "store/screenshots/05-speed-picker.png": [1280, 800], "store/promo-small-440x280.png": [440, 280],
+    "store/promo-marquee-1400x560.png": [1400, 560], "store/og-1200x630.png": [1200, 630], "store/icon-128.png": [128, 128],
+  };
+  for (const [file, [w, h]] of Object.entries(SIZES)) {
+    if (!exists(...file.split("/"))) { problems.push(`${file} is missing (npm run render creates it)`); continue; }
+    const png = readFileSync(join(ROOT, ...file.split("/")));
+    const ok = png.toString("latin1", 1, 4) === "PNG";
+    check(ok && png.readUInt32BE(16) === w && png.readUInt32BE(20) === h, `${file} must be a ${w}x${h} PNG`);
+    if (ok && file.startsWith("store/screenshots/")) check(png[25] === 2, `${file} must be 24-bit RGB without alpha (the stores reject 32-bit PNGs)`);
+  }
+}
+
 // licensing and package metadata
 check(pkg.license === "MIT" && /^MIT License/.test(read("LICENSE")), "package.json license and LICENSE must both be MIT");
 check(pkg.private === true, "package.json must stay private (this repo is not published to npm)");

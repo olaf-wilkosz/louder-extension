@@ -23,11 +23,11 @@ Distraction-free text-to-speech reader for the browser. Select any text, hit pla
 
 ## Screenshots
 
-![Louder's widget reading a Wikipedia article aloud, with the word 'artificial' highlighted live](landing/img/hero.png)
+![Louder's control bar reading an article aloud, with the sentence and the current word highlighted](landing/img/hero.webp)
 
 | Selection trigger | Settings | Voices |
 |---|---|---|
-| ![Selection trigger expanded, showing the Read it louder pill](landing/img/gallery-trigger.png) | ![Settings panel with theme and highlight color presets](landing/img/gallery-settings.png) | ![Voice picker listing available system voices](landing/img/gallery-voices.png) |
+| ![Selection trigger expanded, showing the Read it louder pill](landing/img/gallery-trigger.webp) | ![Settings panel with theme and highlight color presets](landing/img/gallery-settings.webp) | ![Voice picker listing available system voices](landing/img/gallery-voices.webp) |
 | Select text anywhere — the trigger follows your cursor | Theme and highlight color, your choice | Every voice your browser offers |
 
 ## Installation
@@ -58,6 +58,7 @@ npm test           # unit tests (node:test) for the text-matching and extraction
 npm run check      # release checks: versions, store limits, permissions, bundled licenses, forbidden patterns
 npm run site       # assemble the website into dist/site (npm run site:serve to preview at localhost:8123)
 npm run audit:site # Lighthouse on the built site: a11y / best practices / SEO 100, performance >= 90 (needs Chrome)
+npm run render     # re-take the store screenshots, promo tiles and website images from the real extension (needs Chrome)
 ```
 
 `npm run dev` (and `npm run dev:firefox`) rebuild the bundles on every change in `src/`; reload the extension in the browser after a change. The browser version numbers above live in `scripts/build-config.mjs` (one place for the bundle target, the manifest, this README and the store listing; the release checks keep them in sync).

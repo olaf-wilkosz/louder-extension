@@ -37,3 +37,4 @@ The first version. It reads any page, email or selection aloud with the browser'
 - MIT licence, third-party notices for the bundled Readability (Apache-2.0).
 - TypeScript, esbuild; unit tests (`node:test`, jsdom) for the text matching, sentence splitting, language detection and DOM text extraction, including a real marketing email as a fixture; CI with release checks; Dependabot.
 - Landing page with a live demo and a privacy policy page.
+- Store screenshots, promo tiles, the social preview and the website images are rendered by `npm run render` from the real extension running on a demo article (no third-party content), so they can be re-taken whenever the UI changes.
