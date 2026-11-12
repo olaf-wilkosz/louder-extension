@@ -169,18 +169,11 @@ check(pkg.private === true, "package.json must stay private (this repo is not pu
 check(/olaf-wilkosz\/louder-extension/.test(pkg.repository?.url ?? ""), "package.json repository.url does not point at this repository");
 
 // code patterns the stores reject, and things this extension promises never to do
-const ALLOWED_INNERHTML = [
-  /^""$/,                       // clearing
-  /^[A-Z][A-Z0-9_]*$/,          // a module constant (T_PLAY)
-  /^I\.\w+$/,                   // a static SVG icon from the icon table
-  /^\w+ \? I\.\w+ : I\.\w+$/,   // choosing between two of them
-  /^`[^`$]*`$/,                 // a template literal with no ${} interpolation
-];
 const FORBIDDEN = [
   [/\beval\s*\(|new Function\s*\(/, "eval / new Function"],
   [/\bfetch\s*\(|XMLHttpRequest|WebSocket|sendBeacon|EventSource|importScripts/, "a network API (the privacy policy promises no network requests of its own)"],
   [/chrome\.cookies|\bdocument\.cookie\b/, "cookie access"],
-  [/insertAdjacentHTML|\.outerHTML\s*=|document\.write\s*\(/, "HTML injection (build DOM with createElement/textContent)"],
+  [/insertAdjacentHTML|\.(inner|outer)HTML\b|document\.write\s*\(|createContextualFragment|text\/html/, "HTML injection (build DOM with createElement/textContent; SVG icons go through setIcon, which parses them as XML)"],
   [/https?:\/\/(?!www\.w3\.org\/2000\/svg|github\.com\/olaf-wilkosz)[\w.-]+/, "a URL outside the allowed hosts (remote resources)"],
 ];
 for (const path of sourceFiles) {
@@ -189,10 +182,6 @@ for (const path of sourceFiles) {
   for (const [pattern, what] of FORBIDDEN) {
     const match = pattern.exec(text);
     check(!match, `${name}:${match ? lineOf(text, match.index) : 0} contains ${what}`);
-  }
-  for (const match of text.matchAll(/\.innerHTML\s*=\s*([^;]+);/g)) {
-    const rhs = match[1].trim();
-    check(ALLOWED_INNERHTML.some((re) => re.test(rhs)), `${name}:${lineOf(text, match.index)} assigns innerHTML from something that is not a static constant: ${rhs.slice(0, 60)}`);
   }
 }
 
