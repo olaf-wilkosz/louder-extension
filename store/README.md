@@ -26,6 +26,7 @@ What is in this folder:
 
 - Upload `louder-X.Y.Z-firefox.zip`; the add-on id and the "no data collected" declaration are already in the manifest.
 - Test first in Firefox 140+ (and Zen): the Firefox build comes from the same code but is newer and not yet in daily use. Load `dist/firefox/manifest.json` through `about:debugging`.
+- `npm run lint:firefox` (also in CI) already runs the linter the review uses; expect the two Readability `innerHTML` warnings and nothing else.
 - AMO reviewers may ask for the source: the repository is public; point them at the tag and `npm ci && npm run build:firefox`.
 - Paste the summary and description; use the same permission justifications as below.
 

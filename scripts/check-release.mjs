@@ -9,7 +9,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { basename, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CHROME_MIN_VERSION, FIREFOX_MIN_VERSION, GECKO_ID } from "./build-config.mjs";
+import { CHROME_MIN_VERSION, FIREFOX_ANDROID_MIN_VERSION, FIREFOX_MIN_VERSION, GECKO_ID } from "./build-config.mjs";
 import { manifestFor } from "./manifest-targets.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
@@ -85,6 +85,7 @@ check(manifest.minimum_chrome_version === String(CHROME_MIN_VERSION), `manifest 
   check(!firefox.background?.service_worker && sorted(firefox.background?.scripts) === sorted([manifest.background?.service_worker]), "Firefox manifest must run the background script as an event page (background.scripts)");
   check(firefox.browser_specific_settings?.gecko?.id === GECKO_ID, "Firefox manifest has no add-on id");
   check(firefox.browser_specific_settings?.gecko?.strict_min_version === FIREFOX_MIN_VERSION, "Firefox manifest strict_min_version differs from scripts/build-config.mjs");
+  check(firefox.browser_specific_settings?.gecko_android?.strict_min_version === FIREFOX_ANDROID_MIN_VERSION, "Firefox manifest gecko_android.strict_min_version differs from scripts/build-config.mjs");
   check(sorted(firefox.browser_specific_settings?.gecko?.data_collection_permissions?.required) === sorted(["none"]), 'Firefox manifest must declare data_collection_permissions.required = ["none"]');
   check(sorted(firefox.permissions) === sorted(manifest.permissions) && sorted(firefox.host_permissions) === sorted(manifest.host_permissions), "Firefox manifest must request exactly the same permissions as the Chrome one");
 }

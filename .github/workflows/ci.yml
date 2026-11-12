@@ -33,6 +33,8 @@ jobs:
         run: npm test
       - name: Release checks (versions, store limits, permissions, bundled licenses, forbidden patterns)
         run: npm run check
+      - name: Build the Firefox package and lint it (web-ext / addons-linter, the same checks as the Add-ons review)
+        run: npm run build:firefox && npm run lint:firefox
       - name: Build the website (fails on a missing file or anything loaded from another host)
         run: npm run site
       - name: Audit the website (Lighthouse and axe - accessibility, best practices, SEO 100, performance at least 90)
