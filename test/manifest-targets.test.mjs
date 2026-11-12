@@ -2,7 +2,7 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { CHROME_MIN_VERSION, FIREFOX_MIN_VERSION, GECKO_ID } from "../scripts/build-config.mjs";
+import { CHROME_MIN_VERSION, FIREFOX_ANDROID_MIN_VERSION, FIREFOX_MIN_VERSION, GECKO_ID } from "../scripts/build-config.mjs";
 import { manifestFor } from "../scripts/manifest-targets.mjs";
 
 const base = JSON.parse(readFileSync(new URL("../manifest.json", import.meta.url), "utf8"));
@@ -23,7 +23,8 @@ describe("manifestFor", () => {
   });
 
   test("firefox: add-on id, minimum version, and an explicit 'collects nothing' declaration", () => {
-    const { gecko } = manifestFor(base, "firefox").browser_specific_settings;
+    const { gecko, gecko_android } = manifestFor(base, "firefox").browser_specific_settings;
+    assert.deepEqual(gecko_android, { strict_min_version: FIREFOX_ANDROID_MIN_VERSION });
     assert.deepEqual(gecko, {
       id: GECKO_ID,
       strict_min_version: FIREFOX_MIN_VERSION,

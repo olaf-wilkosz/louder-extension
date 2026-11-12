@@ -33,6 +33,7 @@
     "check": "node scripts/check-release.mjs",
     "site": "node scripts/build-site.mjs",
     "site:serve": "node scripts/serve.mjs",
+    "lint:firefox": "node scripts/lint-firefox.mjs",
     "audit:site": "node scripts/audit-site.mjs",
     "render": "node scripts/render-store.mjs"
   },
@@ -50,6 +51,7 @@
     "lighthouse": "13.6.0",
     "puppeteer-core": "25.17.0",
     "sharp": "0.35.5",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "web-ext": "10.8.0"
   }
 }

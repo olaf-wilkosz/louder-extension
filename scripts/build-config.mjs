@@ -10,6 +10,13 @@ export const CHROME_MIN_VERSION = 112;
  */
 export const FIREFOX_MIN_VERSION = "140.0";
 
+/**
+ * Oldest Firefox for Android that understands `data_collection_permissions` (it arrived there two
+ * releases after desktop). Declared so the manifest does not claim a Firefox for Android older
+ * than the keys it uses; the extension itself targets desktop Firefox and Zen.
+ */
+export const FIREFOX_ANDROID_MIN_VERSION = "142.0";
+
 /** Firefox add-on id (AMO needs a stable one; it is an id, not a real address). */
 export const GECKO_ID = "louder@olaf-wilkosz.github.io";
 

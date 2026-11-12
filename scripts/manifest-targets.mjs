@@ -1,6 +1,6 @@
 // One source manifest (manifest.json, the Chrome / Edge / Brave one), two thin variants.
 // Pure, so the build, the release checks and the tests all use the same function.
-import { FIREFOX_MIN_VERSION, GECKO_ID } from "./build-config.mjs";
+import { FIREFOX_ANDROID_MIN_VERSION, FIREFOX_MIN_VERSION, GECKO_ID } from "./build-config.mjs";
 
 /**
  * Firefox has no `background.service_worker`: it runs the same file as an event page
@@ -21,6 +21,7 @@ export function manifestFor(base, target) {
         strict_min_version: FIREFOX_MIN_VERSION,
         data_collection_permissions: { required: ["none"] },
       },
+      gecko_android: { strict_min_version: FIREFOX_ANDROID_MIN_VERSION },
     },
   };
 }

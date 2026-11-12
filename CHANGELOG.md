@@ -30,6 +30,7 @@ The first version. It reads any page, email or selection aloud with the browser'
 ### Privacy and security
 - Preferences are stored locally with `chrome.storage.local` and nothing is ever transmitted. The widget no longer loads a web font from Google (it uses the system font stack).
 - Permissions: `storage`, `contextMenus`, `activeTab`, `scripting` and access to all sites (needed to read whichever page you choose). The list is frozen by a release check and explained on the privacy page.
+- The Firefox build is linted with Mozilla's own linter (web-ext) in CI; the only tolerated findings are two `innerHTML` warnings inside the bundled Readability library.
 - No network APIs, `eval` or HTML injection are allowed in the source (checked in CI); the widget never assigns `innerHTML`, its SVG icons are parsed as XML.
 
 ### Browsers
