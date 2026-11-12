@@ -25,7 +25,20 @@ if (!existsSync(`${ROOT}dist/site/index.html`)) {
 
 const server = spawn(process.execPath, ["scripts/serve.mjs", "dist/site", String(PORT)], { cwd: ROOT, stdio: ["ignore", "pipe", "inherit"] });
 await new Promise((resolve) => server.stdout.once("data", resolve));
-const chrome = await launch({ chromeFlags: ["--headless=new", "--no-sandbox"] });
+// Chrome occasionally fails to open its debugging port on a busy CI runner ("waiting for dynamic
+// debugging port"); that is the browser's start-up, not the site, so try a few times.
+async function launchChrome() {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await launch({ chromeFlags: ["--headless=new", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"] });
+    } catch (error) {
+      if (attempt === 3) throw error;
+      console.warn(`Chrome did not start (attempt ${attempt}): ${error.message}; retrying`);
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+  }
+}
+const chrome = await launchChrome();
 
 const failures = [];
 try {

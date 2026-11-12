@@ -7,7 +7,7 @@ on:
     paths:
       - "landing/**"
       - "public/icons/**"
-      - "store/promo-marquee-1400x560.png"
+      - "store/og-1200x630.png"
       - "scripts/build-site.mjs"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
